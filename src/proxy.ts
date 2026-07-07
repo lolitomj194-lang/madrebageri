@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE_NAME, verifyAdminToken } from "@/lib/auth";
 
-const PUBLIC_PATHS = ["/admin/login", "/api/admin/login", "/api/admin/logout"];
+const PUBLIC_PATHS = ["/admin/login", "/api/admin/login", "/api/admin/logout", "/api/admin/seed-init"];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
