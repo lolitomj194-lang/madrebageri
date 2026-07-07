@@ -155,9 +155,12 @@ const PRODUCTS: SeedProduct[] = [
 ];
 
 // Real Ray-Ban x Scuderia Ferrari inventory, extracted from the seller's own
-// product photos (reference codes read from the Ferrari box tags). basePrice
-// is a placeholder (needs the real price list) - update from the admin panel.
-const FERRARI_PENDING_PRICE = 0;
+// product photos (reference codes read from the Ferrari box tags). Prices
+// below are a flat placeholder applied from the admin panel's bulk price
+// tool - update per-model from /admin/productos once the real price list
+// (per model/code) is available.
+const FERRARI_PLACEHOLDER_BASE_PRICE = 280000;
+const FERRARI_PLACEHOLDER_CASH_PRICE = 250000;
 
 function ferrariProduct(
   name: string,
@@ -175,7 +178,8 @@ function ferrariProduct(
     description: `Ray-Ban para Scuderia Ferrari. ${refCode ? `Codigo de referencia: ${refCode}.` : ""} Producto original, incluye caja, funda y certificado de autenticidad Ferrari.`,
     collection: "Ferrari",
     categorySlug,
-    basePrice: FERRARI_PENDING_PRICE,
+    basePrice: FERRARI_PLACEHOLDER_BASE_PRICE,
+    cashPrice: FERRARI_PLACEHOLDER_CASH_PRICE,
     featured: false,
     imageUrl: `/products/ferrari/${imageFile}`,
     variants: [{ colorName, colorHex, lensColor, stock: 1 }],

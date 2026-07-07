@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { AdminProductsTable } from "@/components/admin/AdminProductsTable";
+import { BulkPriceUpdate } from "@/components/admin/BulkPriceUpdate";
 
 export const revalidate = 0;
 
@@ -21,6 +22,7 @@ export default async function AdminProductosPage() {
           + Nuevo producto
         </Link>
       </div>
+      <BulkPriceUpdate />
       <AdminProductsTable products={products} />
     </div>
   );
