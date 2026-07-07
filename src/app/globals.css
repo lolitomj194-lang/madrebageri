@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf9f6;
+  --background: #f5f1e8;
   --foreground: #141414;
 
-  /* Vision Equis placeholder brand palette - replace with real logo colors */
-  --brand-ink: #0b0b0c;
-  --brand-ink-soft: #1a1a1c;
-  --brand-gold: #c9a227;
-  --brand-gold-light: #e4c766;
+  /* Vision Equis brand palette, matched to the real logo (charcoal + ivory + Ferrari red) */
+  --brand-ink: #35322e;
+  --brand-ink-soft: #423e39;
+  --brand-gold: #cdbfa0;
+  --brand-gold-light: #e4dcc8;
   --brand-ferrari: #e8000d;
-  --brand-cream: #faf9f6;
-  --brand-line: #e5e2da;
+  --brand-cream: #f2ead9;
+  --brand-line: #e7e0d2;
 }
 
 @theme inline {

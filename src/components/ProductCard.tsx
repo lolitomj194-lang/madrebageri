@@ -46,7 +46,9 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           {product.name}
         </h3>
         <div className="mt-2 flex items-center justify-between">
-          <span className="font-serif text-lg text-brand-ink">{formatPrice(product.basePrice)}</span>
+          <span className="font-serif text-lg text-brand-ink">
+            {product.basePrice > 0 ? formatPrice(product.basePrice) : "Consultar precio"}
+          </span>
           <div className="flex -space-x-1">
             {product.variants.slice(0, 4).map((v, i) => (
               <span

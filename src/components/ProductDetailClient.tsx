@@ -64,7 +64,9 @@ export function ProductDetailClient({ productId, slug, name, basePrice, images, 
 
       <div>
         <h1 className="font-serif text-3xl text-brand-ink">{name}</h1>
-        <p className="mt-3 font-serif text-2xl text-brand-gold">{formatPrice(price)}</p>
+        <p className="mt-3 font-serif text-2xl text-brand-gold">
+          {price > 0 ? formatPrice(price) : "Consultar precio"}
+        </p>
 
         <div className="mt-8">
           <h3 className="text-xs uppercase tracking-[0.2em] text-brand-ink/50 mb-3">
@@ -95,13 +97,26 @@ export function ProductDetailClient({ productId, slug, name, basePrice, images, 
           {outOfStock ? "Sin stock en este color" : `Stock disponible: ${selectedVariant?.stock}`}
         </p>
 
-        <button
-          onClick={handleAddToCart}
-          disabled={outOfStock}
-          className="mt-6 w-full rounded-full bg-brand-ink py-4 text-sm uppercase tracking-wide text-brand-cream transition-colors hover:bg-brand-gold hover:text-brand-ink disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:px-12"
-        >
-          {added ? "Agregado ✓" : "Agregar al carrito"}
-        </button>
+        {price > 0 ? (
+          <button
+            onClick={handleAddToCart}
+            disabled={outOfStock}
+            className="mt-6 w-full rounded-full bg-brand-ink py-4 text-sm uppercase tracking-wide text-brand-cream transition-colors hover:bg-brand-gold hover:text-brand-ink disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:px-12"
+          >
+            {added ? "Agregado ✓" : "Agregar al carrito"}
+          </button>
+        ) : (
+          <a
+            href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "5493435173734"}?text=${encodeURIComponent(
+              `Hola! Quiero consultar el precio de ${name}.`
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-block w-full rounded-full bg-[#25D366] py-4 text-center text-sm uppercase tracking-wide text-white transition-transform hover:scale-[1.02] sm:w-auto sm:px-12"
+          >
+            Consultar precio por WhatsApp
+          </a>
+        )}
 
         <div className="mt-10 space-y-2 border-t border-brand-line pt-6 text-sm text-brand-ink/70">
           <p>Producto 100% original, distribuidor autorizado Ray-Ban.</p>

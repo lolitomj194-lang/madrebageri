@@ -13,6 +13,8 @@ const CATEGORIES = [
   { name: "Clubmaster", slug: "clubmaster", order: 4 },
   { name: "Rectangular", slug: "rectangular", order: 5 },
   { name: "Cuadrado", slug: "cuadrado", order: 6 },
+  { name: "Hexagonal", slug: "hexagonal", order: 7 },
+  { name: "Deportivo", slug: "deportivo", order: 8 },
 ];
 
 type SeedVariant = {
@@ -31,57 +33,14 @@ type SeedProduct = {
   categorySlug: string;
   basePrice: number;
   featured: boolean;
-  imageBg: string;
+  imageBg?: string;
+  imageUrl?: string;
   variants: SeedVariant[];
 };
 
 // NOTE: Placeholder catalog for development. Replace with the real Ray-Ban
 // product list, prices and photos via the admin panel before going live.
 const PRODUCTS: SeedProduct[] = [
-  {
-    name: "Ray-Ban RB3648-M Ferrari Aviator",
-    slug: "rb3648m-ferrari-aviator",
-    description:
-      "Edicion especial Ray-Ban x Scuderia Ferrari. Marco metalico liviano con terminaciones rojo Ferrari y lentes espejadas.",
-    collection: "Ferrari",
-    categorySlug: "aviador",
-    basePrice: 285000,
-    featured: true,
-    imageBg: "111111/E8000D",
-    variants: [
-      { colorName: "Negro / Rojo Ferrari", colorHex: "#111111", lensColor: "Espejado plata", stock: 8 },
-      { colorName: "Dorado / Rojo Ferrari", colorHex: "#C9A227", lensColor: "Verde clasico", stock: 5, priceDelta: 15000 },
-    ],
-  },
-  {
-    name: "Ray-Ban RB4413-M Ferrari Wayfarer",
-    slug: "rb4413m-ferrari-wayfarer",
-    description:
-      "Wayfarer en acetato con detalles Scuderia Ferrari, inspirado en los cascos de la escuderia.",
-    collection: "Ferrari",
-    categorySlug: "wayfarer",
-    basePrice: 265000,
-    featured: true,
-    imageBg: "1a1a1a/E8000D",
-    variants: [
-      { colorName: "Negro brillante", colorHex: "#0d0d0d", lensColor: "Gris degrade", stock: 10 },
-      { colorName: "Rojo Ferrari", colorHex: "#E8000D", lensColor: "Gris", stock: 6 },
-    ],
-  },
-  {
-    name: "Ray-Ban RB8317-M Ferrari Rectangular",
-    slug: "rb8317m-ferrari-rectangular",
-    description:
-      "Marco rectangular en fibra de carbono, la linea mas tecnica de la coleccion Ferrari.",
-    collection: "Ferrari",
-    categorySlug: "rectangular",
-    basePrice: 310000,
-    featured: true,
-    imageBg: "0a0a0a/E8000D",
-    variants: [
-      { colorName: "Negro fibra de carbono", colorHex: "#050505", lensColor: "Polarizado gris", stock: 4 },
-    ],
-  },
   {
     name: "Ray-Ban Aviator Classic RB3025",
     slug: "aviator-classic-rb3025",
@@ -172,7 +131,7 @@ const PRODUCTS: SeedProduct[] = [
     slug: "hexagonal-rb3548",
     description: "Marco hexagonal delgado, estetica retro-futurista.",
     collection: "Classic",
-    categorySlug: "cuadrado",
+    categorySlug: "hexagonal",
     basePrice: 170000,
     featured: false,
     imageBg: "C0C0C0/111111",
@@ -192,18 +151,77 @@ const PRODUCTS: SeedProduct[] = [
       { colorName: "Habana", colorHex: "#8B5A2B", lensColor: "Marron degrade", stock: 8 },
     ],
   },
-  {
-    name: "Ray-Ban RB4386-M Ferrari Square",
-    slug: "rb4386m-ferrari-square",
-    description: "Marco cuadrado bold de la coleccion Scuderia Ferrari, terminacion mate.",
-    collection: "Ferrari",
-    categorySlug: "cuadrado",
-    basePrice: 295000,
-    featured: true,
-    imageBg: "111111/E8000D",
-    variants: [{ colorName: "Negro mate / Rojo Ferrari", colorHex: "#111111", lensColor: "Gris polarizado", stock: 5 }],
-  },
 ];
+
+// Real Ray-Ban x Scuderia Ferrari inventory, extracted from the seller's own
+// product photos (reference codes read from the Ferrari box tags). basePrice
+// is a placeholder (needs the real price list) - update from the admin panel.
+const FERRARI_PENDING_PRICE = 0;
+
+function ferrariProduct(
+  name: string,
+  refCode: string,
+  categorySlug: string,
+  colorName: string,
+  colorHex: string,
+  lensColor: string | undefined,
+  imageFile: string
+): SeedProduct {
+  const slug = imageFile.replace(/\.jpg$/, "");
+  return {
+    name: `${name}${refCode ? ` ${refCode}` : ""}`,
+    slug,
+    description: `Ray-Ban para Scuderia Ferrari. ${refCode ? `Codigo de referencia: ${refCode}.` : ""} Producto original, incluye caja, funda y certificado de autenticidad Ferrari.`,
+    collection: "Ferrari",
+    categorySlug,
+    basePrice: FERRARI_PENDING_PRICE,
+    featured: false,
+    imageUrl: `/products/ferrari/${imageFile}`,
+    variants: [{ colorName, colorHex, lensColor, stock: 1 }],
+  };
+}
+
+const NEGRO = "#1c1c1c";
+const DORADO = "#c9a227";
+const PLATEADO = "#b6b6b6";
+const PLATEADO_OSCURO = "#4b4b4b";
+const CAREY = "#8b5a2b";
+const AZUL = "#1f3a5f";
+const ROJO = "#e8000d";
+
+const FERRARI_PRODUCTS: SeedProduct[] = [
+  ferrariProduct("Wayfarer Ferrari", "4195-M F602/71", "wayfarer", "Negro", NEGRO, "Verde polarizado", "wayfarer-negro-verde-polarizado.jpg"),
+  ferrariProduct("Scuderia Collection", "3674-M F031/71", "cuadrado", "Dorado", DORADO, "Verde", "scuderia-dorado-verde-01.jpg"),
+  ferrariProduct("Scuderia Collection", "3674-M F029/A2", "cuadrado", "Dorado / Carey", CAREY, undefined, "scuderia-dorado-carey-01.jpg"),
+  ferrariProduct("Aviador Ferrari", "8313-MF F008/13", "aviador", "Dorado", DORADO, "Marron degrade", "aviador-dorado-marron-degrade.jpg"),
+  ferrariProduct("Ferrari Envolvente", "", "deportivo", "Negro (patilla roja)", NEGRO, "Azul", "envolvente-negro-azul-patilla-roja.jpg"),
+  ferrariProduct("Hexagonal Ferrari", "3548-M F007/3F", "hexagonal", "Plateado", PLATEADO, "Azul degrade", "hexagonal-plateado-azul-degrade.jpg"),
+  ferrariProduct("Aviador Ferrari", "8313-MF F003/H", "aviador", "Negro", NEGRO, "Azul espejado", "aviador-negro-azul-espejado.jpg"),
+  ferrariProduct("Cats Ferrari", "4125 MF F601/9A", "aviador", "Negro", NEGRO, "Azul degrade", "cats-negro-azul-degrade.jpg"),
+  ferrariProduct("Scuderia Collection", "3674 F007/71", "cuadrado", "Plateado oscuro", PLATEADO_OSCURO, "Azulada", "scuderia-plateado-oscuro-azulada.jpg"),
+  ferrariProduct("Ferrari 3703-M", "F029/13", "cuadrado", "Dorado / Carey", CAREY, undefined, "3703m-dorado-carey.jpg"),
+  ferrariProduct("Ferrari 3703-M", "F007/71", "cuadrado", "Plateado", PLATEADO, "Verde", "3703m-plateado-verde.jpg"),
+  ferrariProduct("Scuderia Collection", "3674-M F007/71", "cuadrado", "Plateado", PLATEADO, "Verde", "scuderia-plateado-verde.jpg"),
+  ferrariProduct("Double Bridge Ferrari", "3647-MF F029/3F", "redondo", "Dorado / Rojo", ROJO, "Azul degrade", "doublebridge-dorado-rojo-azul-degrade.jpg"),
+  ferrariProduct("Scuderia Collection", "3674-M F028/6G", "cuadrado", "Negro", NEGRO, "Gris degrade", "scuderia-negro-gris-degrade.jpg"),
+  ferrariProduct("Hexagonal Ferrari", "3548-M F002/62", "hexagonal", "Negro", NEGRO, "Verde", "hexagonal-negro-verde.jpg"),
+  ferrariProduct("Aviador Ferrari", "8313-M F008/71", "aviador", "Dorado", DORADO, "Verde", "aviador-dorado-verde.jpg"),
+  ferrariProduct("Double Bridge Ferrari", "3647-MF F002/R5", "redondo", "Negro", NEGRO, "Verde", "doublebridge-negro-verde.jpg"),
+  ferrariProduct("Aviador Ferrari", "8313-MF F009/6G", "aviador", "Negro / Plateado", PLATEADO_OSCURO, "Espejado", "aviador-negro-plateado-espejado.jpg"),
+  ferrariProduct("Scuderia Collection", "3674-M F028/71", "cuadrado", "Negro", NEGRO, "Verde", "scuderia-negro-verde-01.jpg"),
+  ferrariProduct("Cats Ferrari", "4125 MF F601/87", "aviador", "Negro", NEGRO, "Verde", "cats-negro-verde.jpg"),
+  ferrariProduct("Scuderia Collection", "3674-M F031/71", "cuadrado", "Dorado / Carey", CAREY, "Verde", "scuderia-dorado-carey-verde-02.jpg"),
+  ferrariProduct("Wayfarer Ferrari", "4195-M F604/H0", "wayfarer", "Azul", AZUL, "Azul espejado polarizado", "wayfarer-azul-polarizado.jpg"),
+  ferrariProduct("Cats Ferrari", "4125 MF F668/13", "aviador", "Carey", CAREY, "Marron degrade", "cats-carey-marron-degrade.jpg"),
+  ferrariProduct("Round Fleck Ferrari", "2448 601", "redondo", "Negro", NEGRO, "Verde", "roundfleck-negro-verde.jpg"),
+  ferrariProduct("Scuderia Collection", "3674-M F030/11", "cuadrado", "Plateado oscuro", PLATEADO_OSCURO, "Gris degrade", "scuderia-plateado-gris-degrade.jpg"),
+  ferrariProduct("Hexagonal Ferrari", "3548-M F008/31", "hexagonal", "Dorado", DORADO, "Verde", "hexagonal-dorado-verde.jpg"),
+  ferrariProduct("Aviador Ferrari", "8313-MF F002/32", "aviador", "Negro", NEGRO, "Gris degrade", "aviador-negro-gris-degrade.jpg"),
+  ferrariProduct("Aviador Ferrari", "8313-M F001/71", "aviador", "Negro", NEGRO, "Verde", "aviador-negro-verde.jpg"),
+  ferrariProduct("Round Fleck Ferrari", "2448 601S/30", "redondo", "Negro", NEGRO, "Azul espejado", "roundfleck-azul-espejado.jpg"),
+];
+
+PRODUCTS.push(...FERRARI_PRODUCTS);
 
 async function main() {
   console.log("Seeding database...");
@@ -244,7 +262,9 @@ async function main() {
     await prisma.productImage.create({
       data: {
         productId: product.id,
-        url: `https://placehold.co/800x600/${p.imageBg}?text=${encodeURIComponent(p.name.split(" ").slice(0, 3).join(" "))}`,
+        url:
+          p.imageUrl ??
+          `https://placehold.co/800x600/${p.imageBg}?text=${encodeURIComponent(p.name.split(" ").slice(0, 3).join(" "))}`,
         order: 0,
       },
     });
