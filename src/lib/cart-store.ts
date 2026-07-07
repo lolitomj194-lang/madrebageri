@@ -9,6 +9,7 @@ export type CartItem = {
   variantLabel: string;
   image: string;
   unitPrice: number;
+  cashUnitPrice: number;
   quantity: number;
   maxStock: number;
 };
@@ -61,8 +62,11 @@ export const useCartStore = create<CartState>()(
   )
 );
 
-export function cartTotal(items: CartItem[]) {
-  return items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+export function cartTotal(items: CartItem[], isCashPayment = false) {
+  return items.reduce(
+    (sum, i) => sum + (isCashPayment ? i.cashUnitPrice : i.unitPrice) * i.quantity,
+    0
+  );
 }
 
 export function cartCount(items: CartItem[]) {

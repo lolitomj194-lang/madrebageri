@@ -20,6 +20,7 @@ type InitialData = {
   description: string;
   collection: string;
   basePrice: number;
+  cashPrice: number | null;
   categoryId: string;
   featured: boolean;
   active: boolean;
@@ -46,6 +47,7 @@ export function ProductForm({ categories, initial }: { categories: Category[]; i
   const [description, setDescription] = useState(initial?.description ?? "");
   const [collection, setCollection] = useState(initial?.collection ?? "Classic");
   const [basePrice, setBasePrice] = useState(initial?.basePrice ?? 0);
+  const [cashPrice, setCashPrice] = useState(initial?.cashPrice != null ? String(initial.cashPrice) : "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? "");
   const [featured, setFeatured] = useState(initial?.featured ?? false);
   const [active, setActive] = useState(initial?.active ?? true);
@@ -92,6 +94,7 @@ export function ProductForm({ categories, initial }: { categories: Category[]; i
       description,
       collection,
       basePrice: Number(basePrice),
+      cashPrice: cashPrice.trim() === "" ? null : Number(cashPrice),
       categoryId,
       featured,
       active,
@@ -150,16 +153,30 @@ export function ProductForm({ categories, initial }: { categories: Category[]; i
               </option>
             ))}
           </select>
-          <input
-            type="number"
-            required
-            min={0}
-            placeholder="Precio base (ARS)"
-            value={basePrice}
-            onChange={(e) => setBasePrice(Number(e.target.value))}
-            className="input-field"
-          />
-          <div className="flex items-center gap-6">
+          <div>
+            <input
+              type="number"
+              required
+              min={0}
+              placeholder="Precio tarjeta/Mercado Pago (ARS)"
+              value={basePrice}
+              onChange={(e) => setBasePrice(Number(e.target.value))}
+              className="input-field w-full"
+            />
+            <p className="mt-1 text-xs text-brand-ink/50">Precio que se muestra por defecto en la tienda</p>
+          </div>
+          <div>
+            <input
+              type="number"
+              min={0}
+              placeholder="Precio efectivo/transferencia (opcional)"
+              value={cashPrice}
+              onChange={(e) => setCashPrice(e.target.value)}
+              className="input-field w-full"
+            />
+            <p className="mt-1 text-xs text-brand-ink/50">Dejar vacio si es el mismo precio que tarjeta</p>
+          </div>
+          <div className="flex items-center gap-6 sm:col-span-2">
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
               Destacado

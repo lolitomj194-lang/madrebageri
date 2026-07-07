@@ -7,6 +7,7 @@ type ProductCardData = {
   name: string;
   collection: string | null;
   basePrice: number;
+  cashPrice: number | null;
   category: { name: string };
   images: { url: string }[];
   variants: { colorHex: string; stock: number }[];
@@ -46,9 +47,14 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           {product.name}
         </h3>
         <div className="mt-2 flex items-center justify-between">
-          <span className="font-serif text-lg text-brand-ink">
-            {product.basePrice > 0 ? formatPrice(product.basePrice) : "Consultar precio"}
-          </span>
+          <div>
+            <span className="font-serif text-lg text-brand-ink">
+              {product.basePrice > 0 ? formatPrice(product.basePrice) : "Consultar precio"}
+            </span>
+            {product.basePrice > 0 && product.cashPrice != null && product.cashPrice < product.basePrice && (
+              <p className="text-xs text-brand-ink/60">{formatPrice(product.cashPrice)} efectivo/transf.</p>
+            )}
+          </div>
           <div className="flex -space-x-1">
             {product.variants.slice(0, 4).map((v, i) => (
               <span

@@ -15,6 +15,7 @@ export type ProductInput = {
   description?: string;
   collection?: string;
   basePrice: number;
+  cashPrice?: number | null;
   categoryId: string;
   featured: boolean;
   active: boolean;
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
       description: body.description?.trim() || null,
       collection: body.collection || null,
       basePrice: Number(body.basePrice),
+      cashPrice: body.cashPrice != null ? Number(body.cashPrice) : null,
       categoryId: body.categoryId,
       featured: Boolean(body.featured),
       active: body.active ?? true,

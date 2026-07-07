@@ -27,6 +27,7 @@ export default async function EditarProductoPage({ params }: { params: Promise<{
           description: product.description ?? "",
           collection: product.collection ?? "Classic",
           basePrice: product.basePrice,
+          cashPrice: product.cashPrice,
           categoryId: product.categoryId,
           featured: product.featured,
           active: product.active,

@@ -45,7 +45,11 @@ export async function POST(req: NextRequest) {
           throw new Error(`Sin stock suficiente de ${variant.product.name} (${variant.colorName})`);
         }
 
-        const unitPrice = variant.product.basePrice + variant.priceDelta;
+        const isCashPayment = body.paymentMethod === "TRANSFERENCIA" || body.paymentMethod === "EFECTIVO";
+        const baseForPayment = isCashPayment
+          ? variant.product.cashPrice ?? variant.product.basePrice
+          : variant.product.basePrice;
+        const unitPrice = baseForPayment + variant.priceDelta;
         total += unitPrice * item.quantity;
         itemsData.push({
           productId: variant.productId,

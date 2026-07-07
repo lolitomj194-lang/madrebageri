@@ -20,11 +20,12 @@ type Props = {
   slug: string;
   name: string;
   basePrice: number;
+  cashPrice: number | null;
   images: { url: string }[];
   variants: Variant[];
 };
 
-export function ProductDetailClient({ productId, slug, name, basePrice, images, variants }: Props) {
+export function ProductDetailClient({ productId, slug, name, basePrice, cashPrice, images, variants }: Props) {
   const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id);
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
@@ -35,7 +36,10 @@ export function ProductDetailClient({ productId, slug, name, basePrice, images, 
     [selectedVariantId, variants]
   );
 
-  const price = basePrice + (selectedVariant?.priceDelta ?? 0);
+  const delta = selectedVariant?.priceDelta ?? 0;
+  const price = basePrice + delta;
+  const cashUnitPrice = (cashPrice ?? basePrice) + delta;
+  const hasCashDiscount = cashPrice != null && cashPrice < basePrice;
   const mainImage = selectedVariant?.imageUrl ?? images[0]?.url ?? "https://placehold.co/800x600";
   const outOfStock = !selectedVariant || selectedVariant.stock <= 0;
 
@@ -49,6 +53,7 @@ export function ProductDetailClient({ productId, slug, name, basePrice, images, 
       variantLabel: `${selectedVariant.colorName}${selectedVariant.lensColor ? ` · lente ${selectedVariant.lensColor}` : ""}`,
       image: mainImage,
       unitPrice: price,
+      cashUnitPrice,
       maxStock: selectedVariant.stock,
     });
     setAdded(true);
@@ -67,6 +72,11 @@ export function ProductDetailClient({ productId, slug, name, basePrice, images, 
         <p className="mt-3 font-serif text-2xl text-brand-gold">
           {price > 0 ? formatPrice(price) : "Consultar precio"}
         </p>
+        {price > 0 && hasCashDiscount && (
+          <p className="mt-1 text-sm text-brand-ink/70">
+            {formatPrice(cashUnitPrice)} <span className="text-brand-ink/50">pagando en efectivo o transferencia</span>
+          </p>
+        )}
 
         <div className="mt-8">
           <h3 className="text-xs uppercase tracking-[0.2em] text-brand-ink/50 mb-3">

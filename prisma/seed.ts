@@ -32,6 +32,7 @@ type SeedProduct = {
   collection: string;
   categorySlug: string;
   basePrice: number;
+  cashPrice?: number | null;
   featured: boolean;
   imageBg?: string;
   imageUrl?: string;
@@ -244,6 +245,7 @@ async function main() {
         description: p.description,
         collection: p.collection,
         basePrice: p.basePrice,
+        cashPrice: p.cashPrice ?? null,
         featured: p.featured,
         categoryId: category.id,
       },
@@ -253,6 +255,7 @@ async function main() {
         description: p.description,
         collection: p.collection,
         basePrice: p.basePrice,
+        cashPrice: p.cashPrice ?? null,
         featured: p.featured,
         categoryId: category.id,
       },

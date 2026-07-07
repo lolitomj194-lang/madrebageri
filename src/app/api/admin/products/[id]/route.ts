@@ -34,6 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         description: body.description?.trim() || null,
         collection: body.collection || null,
         basePrice: Number(body.basePrice),
+        cashPrice: body.cashPrice != null ? Number(body.cashPrice) : null,
         categoryId: body.categoryId,
         featured: Boolean(body.featured),
         active: body.active ?? true,

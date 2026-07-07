@@ -64,14 +64,24 @@ efectivo en su lugar.
 `/admin/login` - permite:
 
 - Ver resumen de ventas, pedidos pendientes y stock bajo
-- Crear, editar y eliminar productos (precio, categoria, coleccion,
-  imagenes por URL, variantes de color con stock y ajuste de precio)
+- Crear, editar y eliminar productos (precio tarjeta/Mercado Pago, precio
+  efectivo/transferencia opcional, categoria, coleccion, imagenes por URL,
+  variantes de color con stock y ajuste de precio)
 - Ver pedidos y cambiar su estado (pendiente, pagado, preparando,
   enviado, entregado, cancelado). Al cancelar un pedido se repone el stock
   reservado automaticamente.
 
 Las imagenes de producto se cargan pegando una URL (por ejemplo subida a
 Cloudinary, Imgur o similar) - no hay upload de archivos integrado todavia.
+
+### Precio tarjeta vs. efectivo/transferencia
+
+Cada producto tiene un precio base (el que se muestra por defecto, pensado
+para Mercado Pago/tarjeta) y un precio opcional para efectivo/transferencia.
+Si se deja vacio el precio efectivo, se cobra el mismo precio base. El total
+del carrito se recalcula automaticamente en el checkout segun el medio de
+pago elegido, y el precio final se recalcula tambien en el servidor al crear
+el pedido (nunca se confia en el precio que manda el navegador).
 
 ## Deploy en Vercel
 

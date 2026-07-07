@@ -93,6 +93,9 @@ export function CartDrawer() {
                   <span>Total</span>
                   <span>{formatPrice(total)}</span>
                 </div>
+                <p className="text-xs text-brand-ink/50">
+                  Puede variar con pago en efectivo o transferencia
+                </p>
                 <Link
                   href="/checkout"
                   onClick={closeCart}

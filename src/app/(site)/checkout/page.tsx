@@ -12,11 +12,13 @@ type PaymentMethod = "MERCADOPAGO" | "TRANSFERENCIA" | "EFECTIVO";
 export default function CheckoutPage() {
   const items = useCartStore((s) => s.items);
   const clear = useCartStore((s) => s.clear);
-  const total = cartTotal(items);
   const router = useRouter();
 
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("RETIRO_LOCAL");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MERCADOPAGO");
+  const isCashPayment = paymentMethod === "TRANSFERENCIA" || paymentMethod === "EFECTIVO";
+  const total = cartTotal(items, isCashPayment);
+  const cardTotal = cartTotal(items, false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -186,7 +188,9 @@ export default function CheckoutPage() {
                     {item.variantLabel} · x{item.quantity}
                   </p>
                 </div>
-                <p className="text-sm font-semibold text-brand-ink">{formatPrice(item.unitPrice * item.quantity)}</p>
+                <p className="text-sm font-semibold text-brand-ink">
+                  {formatPrice((isCashPayment ? item.cashUnitPrice : item.unitPrice) * item.quantity)}
+                </p>
               </li>
             ))}
           </ul>
@@ -194,6 +198,9 @@ export default function CheckoutPage() {
             <span>Total</span>
             <span>{formatPrice(total)}</span>
           </div>
+          {isCashPayment && total < cardTotal && (
+            <p className="mt-1 text-right text-xs text-green-700">Precio con descuento por efectivo/transferencia</p>
+          )}
         </aside>
       </div>
     </div>

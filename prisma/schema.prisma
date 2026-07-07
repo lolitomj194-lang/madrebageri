@@ -45,6 +45,7 @@ model Product {
   description String?
   collection  String?
   basePrice   Int
+  cashPrice   Int?
   featured    Boolean          @default(false)
   active      Boolean          @default(true)
   categoryId  String
