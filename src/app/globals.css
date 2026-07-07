@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  --background: #faf9f6;
+  --foreground: #141414;
+
+  /* Vision Equis placeholder brand palette - replace with real logo colors */
+  --brand-ink: #0b0b0c;
+  --brand-ink-soft: #1a1a1c;
+  --brand-gold: #c9a227;
+  --brand-gold-light: #e4c766;
+  --brand-ferrari: #e8000d;
+  --brand-cream: #faf9f6;
+  --brand-line: #e5e2da;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-ink-soft: var(--brand-ink-soft);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-light: var(--brand-gold-light);
+  --color-brand-ferrari: var(--brand-ferrari);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-line: var(--brand-line);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-playfair);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: var(--brand-gold);
+  color: var(--brand-ink);
+}
+
+.input-field {
+  border: 1px solid var(--brand-line);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  background: white;
+}
+.input-field:focus {
+  outline: none;
+  border-color: var(--brand-gold);
+}
+
+.option-card {
+  flex: 1;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--brand-line);
+  padding: 0.9rem 1.1rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.option-card-active {
+  border-color: var(--brand-gold);
+  background: color-mix(in srgb, var(--brand-gold) 8%, white);
+}

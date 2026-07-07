@@ -1,0 +1,130 @@
+// Prisma schema for Vision Equis - Ray-Ban ecommerce (Parana, Argentina)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  MERCADOPAGO
+  TRANSFERENCIA
+  EFECTIVO
+}
+
+enum ShippingMethod {
+  ENVIO
+  RETIRO_LOCAL
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  order     Int       @default(0)
+  products  Product[]
+  createdAt DateTime  @default(now())
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  name        String
+  slug        String           @unique
+  description String?
+  collection  String?
+  basePrice   Int
+  featured    Boolean          @default(false)
+  active      Boolean          @default(true)
+  categoryId  String
+  category    Category         @relation(fields: [categoryId], references: [id])
+  images      ProductImage[]
+  variants    ProductVariant[]
+  orderItems  OrderItem[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([categoryId])
+  @@index([collection])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int     @default(0)
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id         String      @id @default(cuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colorName  String
+  colorHex   String
+  lensColor  String?
+  sku        String      @unique
+  priceDelta Int         @default(0)
+  stock      Int         @default(0)
+  imageUrl   String?
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+model Order {
+  id             String         @id @default(cuid())
+  customerName   String
+  phone          String
+  email          String?
+  address        String?
+  city           String?
+  province       String?
+  shippingMethod ShippingMethod
+  paymentMethod  PaymentMethod
+  status         OrderStatus    @default(PENDING)
+  total          Int
+  notes          String?
+  mpPaymentId    String?
+  mpPreferenceId String?
+  items          OrderItem[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model OrderItem {
+  id           String          @id @default(cuid())
+  orderId      String
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId    String?
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  productName  String
+  variantLabel String?
+  quantity     Int
+  unitPrice    Int
+
+  @@index([orderId])
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
