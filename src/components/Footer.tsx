@@ -69,8 +69,15 @@ export function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-white/10 py-4 text-center text-xs text-brand-cream/50">
+      <div className="relative border-t border-white/10 py-4 text-center text-xs text-brand-cream/50">
         © {new Date().getFullYear()} Vision Equis · Distribuidor autorizado Ray-Ban · Parana, Argentina
+        <Link
+          href="/admin/login"
+          aria-label="Panel de administracion"
+          className="absolute right-4 top-1/2 -translate-y-1/2 px-2 py-2 text-sm text-brand-cream/15 hover:text-brand-cream/50 transition-colors"
+        >
+          ⚙
+        </Link>
       </div>
     </footer>
   );

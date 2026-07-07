@@ -29,6 +29,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           fill
           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
           className="object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+          quality={90}
         />
         {product.collection === "Ferrari" && (
           <span className="absolute left-3 top-3 rounded-full bg-brand-ferrari px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow">

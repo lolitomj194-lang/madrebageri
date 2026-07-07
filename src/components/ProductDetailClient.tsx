@@ -63,8 +63,16 @@ export function ProductDetailClient({ productId, slug, name, basePrice, cashPric
 
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-brand-cream">
-        <Image src={mainImage} alt={name} fill className="object-cover" sizes="(min-width: 1024px) 45vw, 100vw" priority />
+      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-brand-cream">
+        <Image
+          src={mainImage}
+          alt={name}
+          fill
+          className="object-contain"
+          sizes="(min-width: 1024px) 45vw, 100vw"
+          quality={95}
+          priority
+        />
       </div>
 
       <div>
