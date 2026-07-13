@@ -27,6 +27,7 @@ type Props = {
 
 export function ProductDetailClient({ productId, slug, name, basePrice, cashPrice, images, variants }: Props) {
   const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [added, setAdded] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
   const openCart = useCartStore((s) => s.openCart);
@@ -40,7 +41,8 @@ export function ProductDetailClient({ productId, slug, name, basePrice, cashPric
   const price = basePrice + delta;
   const cashUnitPrice = (cashPrice ?? basePrice) + delta;
   const hasCashDiscount = cashPrice != null && cashPrice < basePrice;
-  const mainImage = selectedVariant?.imageUrl ?? images[0]?.url ?? "https://placehold.co/800x600";
+  const mainImage =
+    selectedVariant?.imageUrl ?? images[selectedImageIndex]?.url ?? images[0]?.url ?? "https://placehold.co/800x600";
   const outOfStock = !selectedVariant || selectedVariant.stock <= 0;
 
   const handleAddToCart = () => {
@@ -63,16 +65,33 @@ export function ProductDetailClient({ productId, slug, name, basePrice, cashPric
 
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-brand-cream">
-        <Image
-          src={mainImage}
-          alt={name}
-          fill
-          className="object-contain"
-          sizes="(min-width: 1024px) 45vw, 100vw"
-          quality={95}
-          priority
-        />
+      <div>
+        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-brand-cream">
+          <Image
+            src={mainImage}
+            alt={name}
+            fill
+            className="object-contain"
+            sizes="(min-width: 1024px) 45vw, 100vw"
+            quality={95}
+            priority
+          />
+        </div>
+        {images.length > 1 && !selectedVariant?.imageUrl && (
+          <div className="mt-3 flex gap-3">
+            {images.map((img, i) => (
+              <button
+                key={img.url}
+                onClick={() => setSelectedImageIndex(i)}
+                className={`relative h-16 w-20 overflow-hidden rounded-lg border-2 bg-brand-cream transition-colors ${
+                  i === selectedImageIndex ? "border-brand-gold" : "border-brand-line"
+                }`}
+              >
+                <Image src={img.url} alt={`${name} foto ${i + 1}`} fill className="object-contain" sizes="80px" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>

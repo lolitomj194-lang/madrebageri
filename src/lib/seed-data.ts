@@ -30,7 +30,7 @@ type SeedProduct = {
   cashPrice?: number | null;
   featured: boolean;
   imageBg?: string;
-  imageUrl?: string;
+  imageUrls?: string[];
   variants: SeedVariant[];
 };
 
@@ -164,7 +164,8 @@ function ferrariProduct(
   colorName: string,
   colorHex: string,
   lensColor: string | undefined,
-  imageFile: string
+  imageFile: string,
+  stockImageUrl?: string
 ): SeedProduct {
   const slug = imageFile.replace(/\.jpg$/, "");
   return {
@@ -176,7 +177,7 @@ function ferrariProduct(
     basePrice: FERRARI_PLACEHOLDER_BASE_PRICE,
     cashPrice: FERRARI_PLACEHOLDER_CASH_PRICE,
     featured: false,
-    imageUrl: `/products/ferrari/${imageFile}`,
+    imageUrls: [stockImageUrl, `/products/ferrari/${imageFile}`].filter((u): u is string => Boolean(u)),
     variants: [{ colorName, colorHex, lensColor, stock: 1 }],
   };
 }
@@ -260,16 +261,14 @@ export async function runSeed(prisma: PrismaClient) {
       },
     });
 
+    const imageUrls = p.imageUrls?.length
+      ? p.imageUrls
+      : [`https://placehold.co/800x600/${p.imageBg}?text=${encodeURIComponent(p.name.split(" ").slice(0, 3).join(" "))}`];
+
     await prisma.productImage.deleteMany({ where: { productId: product.id } });
-    await prisma.productImage.create({
-      data: {
-        productId: product.id,
-        url:
-          p.imageUrl ??
-          `https://placehold.co/800x600/${p.imageBg}?text=${encodeURIComponent(p.name.split(" ").slice(0, 3).join(" "))}`,
-        order: 0,
-      },
-    });
+    for (const [i, url] of imageUrls.entries()) {
+      await prisma.productImage.create({ data: { productId: product.id, url, order: i } });
+    }
 
     await prisma.productVariant.deleteMany({ where: { productId: product.id } });
     for (const v of p.variants) {
