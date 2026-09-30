@@ -8,7 +8,7 @@ export const site = {
     "Blanquería, deco y accesorios artesanales",
   description:
     "Almohadones, blanquería, carteras, materos y deco hechos con telas que van rotando. Comprá por menor o por mayor con envíos a todo el país.",
-  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "", // formato internacional sin +, ej 5493435000000
+  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "5493436229063", // formato internacional sin +
   instagram: process.env.NEXT_PUBLIC_INSTAGRAM ?? "aygloriabendita.deco",
   baseUrl: process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000",
 };
