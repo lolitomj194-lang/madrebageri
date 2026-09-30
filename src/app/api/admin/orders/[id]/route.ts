@@ -18,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await prisma.$transaction(async (tx) => {
       for (const item of current.items) {
         if (item.variantId) {
-          await tx.productVariant.update({
+          await tx.variant.update({
             where: { id: item.variantId },
             data: { stock: { increment: item.quantity } },
           });

@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         await prisma.$transaction(async (tx) => {
           for (const item of order.items) {
             if (item.variantId) {
-              await tx.productVariant.update({
+              await tx.variant.update({
                 where: { id: item.variantId },
                 data: { stock: { increment: item.quantity } },
               });

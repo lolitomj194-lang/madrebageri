@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f1e8;
-  --foreground: #141414;
+  --background: #faf6ee;
+  --foreground: #38302b;
 
-  /* Vision Equis brand palette, matched to the real logo (charcoal + ivory + Ferrari red) */
-  --brand-ink: #35322e;
-  --brand-ink-soft: #423e39;
-  --brand-gold: #cdbfa0;
-  --brand-gold-light: #e4dcc8;
-  --brand-ferrari: #e8000d;
-  --brand-cream: #f2ead9;
-  --brand-line: #e7e0d2;
+  /* Paleta Ay Gloria Bendita: lino, terracota y salvia */
+  --brand-ink: #38302b;
+  --brand-ink-soft: #5c5148;
+  --brand-terracotta: #bd5d3a;
+  --brand-terracotta-dark: #a04a2c;
+  --brand-sage: #8b9b7e;
+  --brand-sage-dark: #6f8163;
+  --brand-sand: #ecdfc9;
+  --brand-cream: #f4ecdd;
+  --brand-line: #e6dbc8;
 }
 
 @theme inline {
@@ -19,37 +21,39 @@
   --color-foreground: var(--foreground);
   --color-brand-ink: var(--brand-ink);
   --color-brand-ink-soft: var(--brand-ink-soft);
-  --color-brand-gold: var(--brand-gold);
-  --color-brand-gold-light: var(--brand-gold-light);
-  --color-brand-ferrari: var(--brand-ferrari);
+  --color-brand-terracotta: var(--brand-terracotta);
+  --color-brand-terracotta-dark: var(--brand-terracotta-dark);
+  --color-brand-sage: var(--brand-sage);
+  --color-brand-sage-dark: var(--brand-sage-dark);
+  --color-brand-sand: var(--brand-sand);
   --color-brand-cream: var(--brand-cream);
   --color-brand-line: var(--brand-line);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-playfair);
+  --font-serif: var(--font-fraunces);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
 ::selection {
-  background: var(--brand-gold);
+  background: var(--brand-sand);
   color: var(--brand-ink);
 }
 
 .input-field {
+  width: 100%;
   border: 1px solid var(--brand-line);
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   background: white;
 }
 .input-field:focus {
   outline: none;
-  border-color: var(--brand-gold);
+  border-color: var(--brand-terracotta);
 }
 
 .option-card {
@@ -60,11 +64,65 @@ body {
   gap: 0.125rem;
   border-radius: 0.75rem;
   border: 1px solid var(--brand-line);
+  background: white;
   padding: 0.9rem 1.1rem;
   font-size: 0.875rem;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 .option-card-active {
-  border-color: var(--brand-gold);
-  background: color-mix(in srgb, var(--brand-gold) 8%, white);
+  border-color: var(--brand-terracotta);
+  background: color-mix(in srgb, var(--brand-terracotta) 6%, white);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background: var(--brand-terracotta);
+  color: #fff8ef;
+  font-weight: 600;
+  padding: 0.8rem 1.75rem;
+  font-size: 0.9rem;
+  transition: background-color 0.15s ease;
+}
+.btn-primary:hover {
+  background: var(--brand-terracotta-dark);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1.5px solid var(--brand-ink);
+  color: var(--brand-ink);
+  font-weight: 600;
+  padding: 0.8rem 1.75rem;
+  font-size: 0.9rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.btn-secondary:hover {
+  background: var(--brand-ink);
+  color: var(--brand-cream);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fade-up 0.5s ease both;
 }

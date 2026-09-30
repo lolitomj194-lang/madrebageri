@@ -1,70 +1,57 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatPrice } from "@/lib/format";
+import { availableStock, firstImage, type ProductWithRelations } from "@/lib/products";
+import { hasWholesale } from "@/lib/pricing";
 
-type ProductCardData = {
-  slug: string;
-  name: string;
-  collection: string | null;
-  basePrice: number;
-  cashPrice: number | null;
-  category: { name: string };
-  images: { url: string }[];
-  variants: { colorHex: string; stock: number }[];
-};
-
-export function ProductCard({ product }: { product: ProductCardData }) {
-  const inStock = product.variants.some((v) => v.stock > 0);
-  const image = product.images[0]?.url ?? "https://placehold.co/800x600/1a1a1a/e5e2da?text=Vision+Equis";
+export function ProductCard({ product }: { product: ProductWithRelations }) {
+  const stock = availableStock(product);
+  const activeVariants = product.variants.filter((v) => v.active && v.stock > 0);
 
   return (
     <Link
       href={`/producto/${product.slug}`}
-      className="group block overflow-hidden rounded-xl border border-brand-line bg-white transition-shadow hover:shadow-xl hover:shadow-black/5"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-brand-line bg-white transition-shadow hover:shadow-md"
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-brand-cream">
+      <div className="relative aspect-square overflow-hidden bg-brand-cream">
         <Image
-          src={image}
+          src={firstImage(product)}
           alt={product.name}
           fill
-          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-          className="object-cover transition-transform duration-500 ease-out group-hover:scale-110"
-          quality={90}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
-        {product.collection === "Ferrari" && (
-          <span className="absolute left-3 top-3 rounded-full bg-brand-ferrari px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white shadow">
-            Ferrari
+        {stock === 0 && (
+          <span className="absolute left-3 top-3 rounded-full bg-brand-ink/80 px-3 py-1 text-xs font-semibold text-white">
+            Sin stock — consultar
           </span>
         )}
-        {!inStock && (
-          <span className="absolute right-3 top-3 rounded-full bg-brand-ink/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
-            Sin stock
+        {hasWholesale(product) && (
+          <span className="absolute right-3 top-3 rounded-full bg-brand-sage px-3 py-1 text-xs font-semibold text-white">
+            Mayorista
           </span>
         )}
       </div>
-      <div className="p-4">
-        <p className="text-[11px] uppercase tracking-wide text-brand-ink/50">{product.category.name}</p>
-        <h3 className="mt-1 font-medium text-brand-ink line-clamp-1 group-hover:text-brand-gold transition-colors">
-          {product.name}
-        </h3>
-        <div className="mt-2 flex items-center justify-between">
-          <div>
-            <span className="font-serif text-lg text-brand-ink">
-              {product.basePrice > 0 ? formatPrice(product.basePrice) : "Consultar precio"}
-            </span>
-            {product.basePrice > 0 && product.cashPrice != null && product.cashPrice < product.basePrice && (
-              <p className="text-xs text-brand-ink/60">{formatPrice(product.cashPrice)} efectivo/transf.</p>
-            )}
-          </div>
-          <div className="flex -space-x-1">
-            {product.variants.slice(0, 4).map((v, i) => (
-              <span
-                key={i}
-                className="h-4 w-4 rounded-full border-2 border-white shadow"
-                style={{ backgroundColor: v.colorHex }}
-              />
-            ))}
-          </div>
+
+      <div className="flex flex-1 flex-col gap-1 p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-brand-ink-soft">
+          {product.category.name}
+        </p>
+        <h3 className="font-serif text-lg leading-snug text-brand-ink">{product.name}</h3>
+        {activeVariants.length > 0 && (
+          <p className="text-xs text-brand-ink-soft">
+            {activeVariants.length === 1
+              ? "1 tela disponible"
+              : `${activeVariants.length} telas disponibles`}
+          </p>
+        )}
+        <div className="mt-auto pt-2">
+          <p className="text-lg font-semibold text-brand-ink">{formatPrice(product.price)}</p>
+          {product.cashPrice != null && product.cashPrice < product.price && (
+            <p className="text-xs text-brand-sage-dark">
+              {formatPrice(product.cashPrice)} con efectivo o transferencia
+            </p>
+          )}
         </div>
       </div>
     </Link>

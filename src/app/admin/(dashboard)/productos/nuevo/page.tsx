@@ -1,14 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { ProductForm } from "@/components/admin/ProductForm";
 
-export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
-export default async function NuevoProductoPage() {
+export default async function NewProductPage() {
   const categories = await prisma.category.findMany({ orderBy: { order: "asc" } });
 
   return (
-    <div>
-      <h1 className="font-serif text-2xl text-brand-ink mb-6">Nuevo producto</h1>
+    <div className="space-y-5">
+      <h1 className="font-serif text-2xl text-brand-ink">Nuevo producto</h1>
       <ProductForm categories={categories} />
     </div>
   );

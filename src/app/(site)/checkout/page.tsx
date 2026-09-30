@@ -1,52 +1,44 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCartStore, cartTotal } from "@/lib/cart-store";
+import { useCartStore, cartTotal, itemUnitPrice } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/format";
+import type { CreateOrderRequest } from "@/lib/order-types";
 
-type ShippingMethod = "ENVIO" | "RETIRO_LOCAL";
-type PaymentMethod = "MERCADOPAGO" | "TRANSFERENCIA" | "EFECTIVO";
+type PaymentMethod = CreateOrderRequest["paymentMethod"];
+type ShippingMethod = CreateOrderRequest["shippingMethod"];
 
 export default function CheckoutPage() {
-  const items = useCartStore((s) => s.items);
-  const clear = useCartStore((s) => s.clear);
   const router = useRouter();
+  const { items, clear } = useCartStore();
 
-  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("RETIRO_LOCAL");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MERCADOPAGO");
-  const isCashPayment = paymentMethod === "TRANSFERENCIA" || paymentMethod === "EFECTIVO";
-  const total = cartTotal(items, isCashPayment);
-  const cardTotal = cartTotal(items, false);
-  const [loading, setLoading] = useState(false);
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("ENVIO_NACIONAL");
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (items.length === 0) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-24 text-center">
-        <h1 className="font-serif text-2xl text-brand-ink">Tu carrito esta vacio</h1>
-        <p className="mt-3 text-brand-ink/60">Agrega productos desde el catalogo para finalizar una compra.</p>
-      </div>
-    );
-  }
+  const isCash = paymentMethod !== "MERCADOPAGO";
+  const total = cartTotal(items, isCash);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    setSubmitting(true);
 
     const form = new FormData(e.currentTarget);
-    const payload = {
+    const body: CreateOrderRequest = {
       customerName: String(form.get("customerName") ?? ""),
       phone: String(form.get("phone") ?? ""),
-      email: String(form.get("email") ?? ""),
+      email: String(form.get("email") ?? "") || undefined,
       shippingMethod,
-      address: String(form.get("address") ?? ""),
-      city: String(form.get("city") ?? ""),
-      province: String(form.get("province") ?? ""),
+      address: String(form.get("address") ?? "") || undefined,
+      city: String(form.get("city") ?? "") || undefined,
+      province: String(form.get("province") ?? "") || undefined,
+      postalCode: String(form.get("postalCode") ?? "") || undefined,
       paymentMethod,
-      notes: String(form.get("notes") ?? ""),
+      notes: String(form.get("notes") ?? "") || undefined,
       items: items.map((i) => ({
         productId: i.productId,
         variantId: i.variantId,
@@ -58,151 +50,190 @@ export default function CheckoutPage() {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "No se pudo procesar el pedido");
-        setLoading(false);
+        setError(data.error ?? "No se pudo crear el pedido");
+        setSubmitting(false);
         return;
       }
       clear();
-      if (data.redirectUrl?.startsWith("http")) {
+      if (data.redirectUrl.startsWith("http")) {
         window.location.href = data.redirectUrl;
       } else {
         router.push(data.redirectUrl);
       }
     } catch {
-      setError("Error de conexion. Intenta nuevamente.");
-      setLoading(false);
+      setError("Error de conexión. Probá de nuevo.");
+      setSubmitting(false);
     }
   }
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <h1 className="font-serif text-3xl text-brand-ink mb-8">Finalizar compra</h1>
+  if (items.length === 0) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 px-4 py-24 text-center">
+        <h1 className="font-serif text-2xl text-brand-ink">Tu carrito está vacío</h1>
+        <Link href="/catalogo" className="btn-primary">
+          Ir al catálogo
+        </Link>
+      </div>
+    );
+  }
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px]">
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <section>
-            <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50 mb-4">Tus datos</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <input name="customerName" required placeholder="Nombre y apellido" className="input-field" />
-              <input name="phone" required placeholder="Telefono / WhatsApp" className="input-field" />
-              <input name="email" type="email" placeholder="Email (opcional)" className="input-field sm:col-span-2" />
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-10">
+      <h1 className="font-serif text-3xl text-brand-ink">Finalizar compra</h1>
+
+      <form onSubmit={handleSubmit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-8">
+          {/* Datos */}
+          <section className="space-y-3">
+            <h2 className="font-serif text-xl text-brand-ink">Tus datos</h2>
+            <input name="customerName" required placeholder="Nombre y apellido *" className="input-field" />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input name="phone" required type="tel" placeholder="WhatsApp / teléfono *" className="input-field" />
+              <input name="email" type="email" placeholder="Email (opcional)" className="input-field" />
             </div>
           </section>
 
-          <section>
-            <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50 mb-4">Entrega</h2>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <label className={`option-card ${shippingMethod === "RETIRO_LOCAL" ? "option-card-active" : ""}`}>
+          {/* Entrega */}
+          <section className="space-y-3">
+            <h2 className="font-serif text-xl text-brand-ink">Entrega</h2>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className={`option-card ${shippingMethod === "ENVIO_NACIONAL" ? "option-card-active" : ""}`}>
                 <input
                   type="radio"
-                  name="shippingMethodRadio"
-                  className="hidden"
-                  checked={shippingMethod === "RETIRO_LOCAL"}
-                  onChange={() => setShippingMethod("RETIRO_LOCAL")}
+                  name="shipping"
+                  className="sr-only"
+                  checked={shippingMethod === "ENVIO_NACIONAL"}
+                  onChange={() => setShippingMethod("ENVIO_NACIONAL")}
                 />
-                <span className="font-medium">Retiro en local</span>
-                <span className="text-xs text-brand-ink/60">Zona Hipodromo, Parana</span>
+                <span className="font-semibold">Envío a domicilio o sucursal</span>
+                <span className="text-brand-ink-soft">
+                  A todo el país. El costo se coordina por WhatsApp.
+                </span>
               </label>
-              <label className={`option-card ${shippingMethod === "ENVIO" ? "option-card-active" : ""}`}>
+              <label className={`option-card ${shippingMethod === "RETIRO" ? "option-card-active" : ""}`}>
                 <input
                   type="radio"
-                  name="shippingMethodRadio"
-                  className="hidden"
-                  checked={shippingMethod === "ENVIO"}
-                  onChange={() => setShippingMethod("ENVIO")}
+                  name="shipping"
+                  className="sr-only"
+                  checked={shippingMethod === "RETIRO"}
+                  onChange={() => setShippingMethod("RETIRO")}
                 />
-                <span className="font-medium">Envio a domicilio</span>
-                <span className="text-xs text-brand-ink/60">A todo el pais, coordinamos por WhatsApp</span>
+                <span className="font-semibold">Retiro / entrega en persona</span>
+                <span className="text-brand-ink-soft">Coordinamos día y lugar.</span>
               </label>
             </div>
 
-            {shippingMethod === "ENVIO" && (
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <input name="address" required placeholder="Direccion" className="input-field sm:col-span-2" />
-                <input name="city" required placeholder="Ciudad" className="input-field" />
-                <input name="province" required placeholder="Provincia" className="input-field" />
+            {shippingMethod === "ENVIO_NACIONAL" && (
+              <div className="space-y-3">
+                <input name="address" required placeholder="Dirección (calle y número) *" className="input-field" />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <input name="city" required placeholder="Localidad *" className="input-field" />
+                  <input name="province" required placeholder="Provincia *" className="input-field" />
+                  <input name="postalCode" placeholder="Código postal" className="input-field" />
+                </div>
               </div>
             )}
           </section>
 
-          <section>
-            <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50 mb-4">Medio de pago</h2>
-            <div className="flex flex-col gap-3">
+          {/* Pago */}
+          <section className="space-y-3">
+            <h2 className="font-serif text-xl text-brand-ink">Pago</h2>
+            <div className="flex flex-col gap-2">
               {(
                 [
-                  { id: "MERCADOPAGO", label: "Mercado Pago", desc: "Tarjeta, cuotas o dinero en cuenta" },
-                  { id: "TRANSFERENCIA", label: "Transferencia bancaria", desc: "Te enviamos los datos por WhatsApp" },
-                  { id: "EFECTIVO", label: "Efectivo", desc: "Al retirar en el local" },
-                ] as const
-              ).map((opt) => (
-                <label key={opt.id} className={`option-card ${paymentMethod === opt.id ? "option-card-active" : ""}`}>
+                  {
+                    value: "MERCADOPAGO",
+                    title: "Mercado Pago",
+                    text: "Tarjeta de crédito, débito o dinero en cuenta. Pagás ahora y queda confirmado.",
+                  },
+                  {
+                    value: "TRANSFERENCIA",
+                    title: "Transferencia bancaria",
+                    text: "Te pasamos el alias por WhatsApp. Precio con descuento.",
+                  },
+                  {
+                    value: "EFECTIVO",
+                    title: "Efectivo",
+                    text: "Al retirar o contra entrega según coordinemos. Precio con descuento.",
+                  },
+                ] as { value: PaymentMethod; title: string; text: string }[]
+              ).map((option) => (
+                <label
+                  key={option.value}
+                  className={`option-card ${paymentMethod === option.value ? "option-card-active" : ""}`}
+                >
                   <input
                     type="radio"
-                    name="paymentMethodRadio"
-                    className="hidden"
-                    checked={paymentMethod === opt.id}
-                    onChange={() => setPaymentMethod(opt.id)}
+                    name="payment"
+                    className="sr-only"
+                    checked={paymentMethod === option.value}
+                    onChange={() => setPaymentMethod(option.value)}
                   />
-                  <span className="font-medium">{opt.label}</span>
-                  <span className="text-xs text-brand-ink/60">{opt.desc}</span>
+                  <span className="font-semibold">{option.title}</span>
+                  <span className="text-brand-ink-soft">{option.text}</span>
                 </label>
               ))}
             </div>
           </section>
 
-          <section>
+          <section className="space-y-3">
+            <h2 className="font-serif text-xl text-brand-ink">Notas</h2>
             <textarea
               name="notes"
-              placeholder="Notas adicionales (opcional)"
-              className="input-field w-full"
               rows={3}
+              placeholder="Aclaraciones: color alternativo si se agota la tela, horario de entrega, etc."
+              className="input-field resize-none"
             />
           </section>
+        </div>
 
-          {error && <p className="text-sm text-brand-ferrari">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-full bg-brand-ink py-4 text-sm uppercase tracking-wide text-brand-cream transition-colors hover:bg-brand-gold hover:text-brand-ink disabled:opacity-50"
-          >
-            {loading ? "Procesando..." : "Confirmar pedido"}
-          </button>
-        </form>
-
-        <aside className="h-fit rounded-2xl border border-brand-line bg-white p-6">
-          <h2 className="font-serif text-lg text-brand-ink mb-4">Tu pedido</h2>
-          <ul className="space-y-4">
-            {items.map((item) => (
-              <li key={item.variantId} className="flex gap-3">
-                <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-md bg-brand-cream">
-                  <Image src={item.image} alt={item.name} fill className="object-cover" sizes="80px" />
-                </div>
-                <div className="flex-1 text-sm">
-                  <p className="font-medium text-brand-ink line-clamp-1">{item.name}</p>
-                  <p className="text-xs text-brand-ink/60">
-                    {item.variantLabel} · x{item.quantity}
-                  </p>
-                </div>
-                <p className="text-sm font-semibold text-brand-ink">
-                  {formatPrice((isCashPayment ? item.cashUnitPrice : item.unitPrice) * item.quantity)}
-                </p>
-              </li>
-            ))}
+        {/* Resumen */}
+        <aside className="h-fit space-y-4 rounded-2xl border border-brand-line bg-white p-5 lg:sticky lg:top-24">
+          <h2 className="font-serif text-xl text-brand-ink">Tu pedido</h2>
+          <ul className="space-y-2 text-sm">
+            {items.map((item) => {
+              const { unitPrice, isWholesale } = itemUnitPrice(items, item, isCash);
+              return (
+                <li key={item.variantId} className="flex justify-between gap-2">
+                  <span className="text-brand-ink-soft">
+                    {item.quantity}× {item.name}{" "}
+                    <span className="text-xs">({item.variantLabel})</span>
+                    {isWholesale && (
+                      <span className="ml-1 text-xs font-semibold text-brand-sage-dark">mayorista</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 font-medium">{formatPrice(unitPrice * item.quantity)}</span>
+                </li>
+              );
+            })}
           </ul>
-          <div className="mt-6 flex items-center justify-between border-t border-brand-line pt-4 font-serif text-lg text-brand-ink">
-            <span>Total</span>
-            <span>{formatPrice(total)}</span>
+          <div className="border-t border-brand-line pt-3">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-brand-ink">Total</span>
+              <span className="text-xl font-bold text-brand-ink">{formatPrice(total)}</span>
+            </div>
+            <p className="mt-1 text-xs text-brand-ink-soft">
+              + envío a coordinar por WhatsApp según destino
+            </p>
           </div>
-          {isCashPayment && total < cardTotal && (
-            <p className="mt-1 text-right text-xs text-green-700">Precio con descuento por efectivo/transferencia</p>
+
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
           )}
+
+          <button type="submit" disabled={submitting} className="btn-primary w-full">
+            {submitting
+              ? "Procesando..."
+              : paymentMethod === "MERCADOPAGO"
+                ? "Pagar con Mercado Pago"
+                : "Confirmar pedido"}
+          </button>
         </aside>
-      </div>
+      </form>
     </div>
   );
 }

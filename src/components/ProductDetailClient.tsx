@@ -1,163 +1,216 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { formatPrice } from "@/lib/format";
 import { useCartStore } from "@/lib/cart-store";
+import { hasWholesale } from "@/lib/pricing";
+import { formatPrice } from "@/lib/format";
+import { site, whatsappLink } from "@/lib/site";
+import type { ProductWithRelations } from "@/lib/products";
 
-type Variant = {
-  id: string;
-  colorName: string;
-  colorHex: string;
-  lensColor: string | null;
-  stock: number;
-  priceDelta: number;
-  imageUrl: string | null;
-};
-
-type Props = {
-  productId: string;
-  slug: string;
-  name: string;
-  basePrice: number;
-  cashPrice: number | null;
-  images: { url: string }[];
-  variants: Variant[];
-};
-
-export function ProductDetailClient({ productId, slug, name, basePrice, cashPrice, images, variants }: Props) {
-  const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [added, setAdded] = useState(false);
+export function ProductDetailClient({ product }: { product: ProductWithRelations }) {
   const addItem = useCartStore((s) => s.addItem);
-  const openCart = useCartStore((s) => s.openCart);
+  const activeVariants = product.variants.filter((v) => v.active);
+  const buyableVariants = activeVariants.filter((v) => v.stock > 0);
 
-  const selectedVariant = useMemo(
-    () => variants.find((v) => v.id === selectedVariantId) ?? variants[0],
-    [selectedVariantId, variants]
+  const [selectedId, setSelectedId] = useState<string | null>(
+    buyableVariants[0]?.id ?? activeVariants[0]?.id ?? null
   );
+  const [quantity, setQuantity] = useState(1);
+  const selected = activeVariants.find((v) => v.id === selectedId) ?? null;
 
-  const delta = selectedVariant?.priceDelta ?? 0;
-  const price = basePrice + delta;
-  const cashUnitPrice = (cashPrice ?? basePrice) + delta;
-  const hasCashDiscount = cashPrice != null && cashPrice < basePrice;
-  const mainImage =
-    selectedVariant?.imageUrl ?? images[selectedImageIndex]?.url ?? images[0]?.url ?? "https://placehold.co/800x600";
-  const outOfStock = !selectedVariant || selectedVariant.stock <= 0;
+  const galleryImages = [
+    ...(selected?.imageUrl ? [selected.imageUrl] : []),
+    ...product.images.map((img) => img.url),
+  ];
+  const mainImage = galleryImages[0] ?? "/placeholder-product.svg";
+  const [viewedImage, setViewedImage] = useState<string | null>(null);
+  const displayImage = viewedImage ?? mainImage;
 
-  const handleAddToCart = () => {
-    if (!selectedVariant || outOfStock) return;
-    addItem({
-      productId,
-      variantId: selectedVariant.id,
-      slug,
-      name,
-      variantLabel: `${selectedVariant.colorName}${selectedVariant.lensColor ? ` · lente ${selectedVariant.lensColor}` : ""}`,
-      image: mainImage,
-      unitPrice: price,
-      cashUnitPrice,
-      maxStock: selectedVariant.stock,
-    });
-    setAdded(true);
-    openCart();
-    setTimeout(() => setAdded(false), 2000);
-  };
+  const price = product.price + (selected?.priceDelta ?? 0);
+  const cashPrice =
+    product.cashPrice != null ? product.cashPrice + (selected?.priceDelta ?? 0) : null;
+
+  const canBuy = selected != null && selected.stock > 0;
+
+  const consultMessage = `Hola ${site.name}! Vi "${product.name}" en la tienda y quiero consultar por las telas disponibles.`;
 
   return (
-    <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-      <div>
-        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-brand-cream">
+    <div className="grid gap-10 lg:grid-cols-2">
+      {/* Galeria */}
+      <div className="space-y-3">
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-brand-line bg-brand-cream">
           <Image
-            src={mainImage}
-            alt={name}
+            src={displayImage}
+            alt={product.name}
             fill
-            className="object-contain"
-            sizes="(min-width: 1024px) 45vw, 100vw"
-            quality={95}
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            className="object-cover"
             priority
           />
         </div>
-        {images.length > 1 && !selectedVariant?.imageUrl && (
-          <div className="mt-3 flex gap-3">
-            {images.map((img, i) => (
+        {galleryImages.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {galleryImages.map((url) => (
               <button
-                key={img.url}
-                onClick={() => setSelectedImageIndex(i)}
-                className={`relative h-16 w-20 overflow-hidden rounded-lg border-2 bg-brand-cream transition-colors ${
-                  i === selectedImageIndex ? "border-brand-gold" : "border-brand-line"
+                key={url}
+                onClick={() => setViewedImage(url)}
+                className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${
+                  displayImage === url ? "border-brand-terracotta" : "border-transparent"
                 }`}
               >
-                <Image src={img.url} alt={`${name} foto ${i + 1}`} fill className="object-contain" sizes="80px" />
+                <Image src={url} alt="" fill sizes="80px" className="object-cover" />
               </button>
             ))}
           </div>
         )}
       </div>
 
-      <div>
-        <h1 className="font-serif text-3xl text-brand-ink">{name}</h1>
-        <p className="mt-3 font-serif text-2xl text-brand-gold">
-          {price > 0 ? formatPrice(price) : "Consultar precio"}
-        </p>
-        {price > 0 && hasCashDiscount && (
-          <p className="mt-1 text-sm text-brand-ink/70">
-            {formatPrice(cashUnitPrice)} <span className="text-brand-ink/50">pagando en efectivo o transferencia</span>
+      {/* Info */}
+      <div className="space-y-6">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wide text-brand-terracotta">
+            {product.category.name}
+          </p>
+          <h1 className="mt-1 font-serif text-3xl text-brand-ink sm:text-4xl">{product.name}</h1>
+        </div>
+
+        <div>
+          <p className="text-3xl font-semibold text-brand-ink">{formatPrice(price)}</p>
+          {cashPrice != null && cashPrice < price && (
+            <p className="mt-1 text-sm text-brand-sage-dark">
+              {formatPrice(cashPrice)} pagando con efectivo o transferencia
+            </p>
+          )}
+          {hasWholesale(product) && (
+            <p className="mt-2 inline-block rounded-lg bg-brand-sage/15 px-3 py-2 text-sm text-brand-sage-dark">
+              <strong>Precio mayorista:</strong>{" "}
+              {formatPrice((product.wholesalePrice as number) + (selected?.priceDelta ?? 0))} c/u
+              llevando {product.wholesaleMinQty}+ unidades (podés combinar telas)
+            </p>
+          )}
+        </div>
+
+        {product.description && (
+          <p className="whitespace-pre-line text-sm leading-relaxed text-brand-ink-soft">
+            {product.description}
           </p>
         )}
 
-        <div className="mt-8">
-          <h3 className="text-xs uppercase tracking-[0.2em] text-brand-ink/50 mb-3">
-            Color: {selectedVariant?.colorName}
-          </h3>
-          <div className="flex flex-wrap gap-3">
-            {variants.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => setSelectedVariantId(v.id)}
-                aria-label={v.colorName}
-                className={`relative h-10 w-10 rounded-full border-2 transition-all ${
-                  selectedVariantId === v.id ? "border-brand-gold scale-110" : "border-brand-line"
-                } ${v.stock <= 0 ? "opacity-30" : ""}`}
-                style={{ backgroundColor: v.colorHex }}
-                disabled={v.stock <= 0}
-                title={v.stock <= 0 ? "Sin stock" : v.colorName}
-              />
-            ))}
+        {/* Selector de telas */}
+        {activeVariants.length > 0 && (
+          <div>
+            <p className="mb-2 text-sm font-semibold text-brand-ink">
+              Telas y diseños disponibles hoy
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {activeVariants.map((variant) => {
+                const soldOut = variant.stock === 0;
+                const isSelected = variant.id === selectedId;
+                return (
+                  <button
+                    key={variant.id}
+                    onClick={() => {
+                      setSelectedId(variant.id);
+                      setViewedImage(null);
+                      setQuantity(1);
+                    }}
+                    className={`flex items-center gap-2 rounded-xl border p-2 text-left transition-colors ${
+                      isSelected
+                        ? "border-brand-terracotta bg-brand-terracotta/5"
+                        : "border-brand-line bg-white hover:border-brand-terracotta/50"
+                    } ${soldOut ? "opacity-50" : ""}`}
+                  >
+                    {variant.imageUrl && (
+                      <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                        <Image src={variant.imageUrl} alt={variant.name} fill sizes="48px" className="object-cover" />
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-medium text-brand-ink">
+                        {variant.name}
+                      </span>
+                      <span className="block text-[0.7rem] text-brand-ink-soft">
+                        {soldOut ? "Agotada" : `Stock: ${variant.stock}`}
+                        {variant.priceDelta !== 0 &&
+                          ` · ${variant.priceDelta > 0 ? "+" : ""}${formatPrice(variant.priceDelta)}`}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-brand-ink-soft">
+              Las telas rotan según disponibilidad. ¿Buscás otra? Consultanos, seguro
+              tenemos algo para vos.
+            </p>
           </div>
-        </div>
-
-        {selectedVariant?.lensColor && (
-          <p className="mt-4 text-sm text-brand-ink/70">Lente: {selectedVariant.lensColor}</p>
         )}
 
-        <p className={`mt-4 text-sm ${outOfStock ? "text-brand-ferrari" : "text-green-700"}`}>
-          {outOfStock ? "Sin stock en este color" : `Stock disponible: ${selectedVariant?.stock}`}
-        </p>
+        {/* Compra */}
+        <div className="space-y-3">
+          {canBuy ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center rounded-full border border-brand-line bg-white">
+                <button
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  className="px-4 py-2.5 text-brand-ink-soft hover:text-brand-ink"
+                  aria-label="Restar uno"
+                >
+                  −
+                </button>
+                <span className="min-w-8 text-center font-medium">{quantity}</span>
+                <button
+                  onClick={() => setQuantity((q) => Math.min(selected.stock, q + 1))}
+                  className="px-4 py-2.5 text-brand-ink-soft hover:text-brand-ink"
+                  aria-label="Sumar uno"
+                >
+                  +
+                </button>
+              </div>
+              <button
+                onClick={() =>
+                  addItem(
+                    {
+                      productId: product.id,
+                      variantId: selected.id,
+                      slug: product.slug,
+                      name: product.name,
+                      variantLabel: selected.name,
+                      image: selected.imageUrl ?? mainImage,
+                      pricing: {
+                        price: product.price,
+                        cashPrice: product.cashPrice,
+                        wholesalePrice: product.wholesalePrice,
+                        wholesaleMinQty: product.wholesaleMinQty,
+                      },
+                      priceDelta: selected.priceDelta,
+                      maxStock: selected.stock,
+                    },
+                    quantity
+                  )
+                }
+                className="btn-primary flex-1"
+              >
+                Agregar al carrito
+              </button>
+            </div>
+          ) : (
+            <p className="rounded-xl bg-brand-sand px-4 py-3 text-sm text-brand-ink">
+              Este producto está momentáneamente sin stock, pero las telas van y
+              vienen: escribinos y te contamos qué hay disponible o te lo hacemos
+              a pedido.
+            </p>
+          )}
 
-        {price > 0 ? (
-          <button
-            onClick={handleAddToCart}
-            disabled={outOfStock}
-            className="mt-6 w-full rounded-full bg-brand-ink py-4 text-sm uppercase tracking-wide text-brand-cream transition-colors hover:bg-brand-gold hover:text-brand-ink disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:px-12"
-          >
-            {added ? "Agregado ✓" : "Agregar al carrito"}
-          </button>
-        ) : (
           <a
-            href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "5493435173734"}?text=${encodeURIComponent(
-              `Hola! Quiero consultar el precio de ${name}.`
-            )}`}
+            href={whatsappLink(consultMessage)}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-block w-full rounded-full bg-[#25D366] py-4 text-center text-sm uppercase tracking-wide text-white transition-transform hover:scale-[1.02] sm:w-auto sm:px-12"
+            className="btn-secondary w-full"
           >
-            Consultar precio por WhatsApp
+            Consultar telas por WhatsApp
           </a>
-        )}
-
-        <div className="mt-10 space-y-2 border-t border-brand-line pt-6 text-sm text-brand-ink/70">
-          <p>Producto 100% original, distribuidor autorizado Ray-Ban.</p>
-          <p>Envios a todo el pais o retiro en zona Hipodromo, Parana.</p>
         </div>
       </div>
     </div>

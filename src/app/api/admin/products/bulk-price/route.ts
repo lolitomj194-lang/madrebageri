@@ -1,33 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type Scope = "all" | "collection" | "no-price";
+// Aumento (o baja) masiva de precios por porcentaje, pensada para ajustar
+// todo el catalogo de una sola vez. Redondea al centenar de pesos.
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const scope: Scope = body.scope;
-  const collection: string | undefined = body.collection;
-  const basePrice = Number(body.basePrice);
-  const cashPrice = body.cashPrice != null && body.cashPrice !== "" ? Number(body.cashPrice) : null;
+  const percent = Number(body.percent);
 
-  if (!Number.isFinite(basePrice) || basePrice < 0) {
-    return NextResponse.json({ error: "Precio tarjeta invalido" }, { status: 400 });
-  }
-  if (scope === "collection" && !collection) {
-    return NextResponse.json({ error: "Elegi una coleccion" }, { status: 400 });
+  if (!Number.isFinite(percent) || percent <= -100 || percent > 500) {
+    return NextResponse.json(
+      { error: "Porcentaje inválido (entre -99 y 500)" },
+      { status: 400 }
+    );
   }
 
-  const where =
-    scope === "collection"
-      ? { collection }
-      : scope === "no-price"
-        ? { basePrice: 0 }
-        : {};
+  const factor = 1 + percent / 100;
+  const result = await prisma.$executeRaw`
+    UPDATE "Product" SET
+      "price" = GREATEST(100, ROUND("price" * ${factor}::float8 / 100.0)::int * 100),
+      "cashPrice" = CASE WHEN "cashPrice" IS NULL THEN NULL
+        ELSE GREATEST(100, ROUND("cashPrice" * ${factor}::float8 / 100.0)::int * 100) END,
+      "wholesalePrice" = CASE WHEN "wholesalePrice" IS NULL THEN NULL
+        ELSE GREATEST(100, ROUND("wholesalePrice" * ${factor}::float8 / 100.0)::int * 100) END,
+      "updatedAt" = NOW()
+  `;
 
-  const result = await prisma.product.updateMany({
-    where,
-    data: { basePrice, cashPrice },
-  });
-
-  return NextResponse.json({ updated: result.count });
+  return NextResponse.json({ updated: Number(result) });
 }

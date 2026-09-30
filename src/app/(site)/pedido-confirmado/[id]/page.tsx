@@ -1,84 +1,89 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/format";
+import { site, whatsappLink } from "@/lib/site";
+import { PAYMENT_LABELS, SHIPPING_LABELS } from "@/lib/order-types";
 
-const WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "5493435173734";
+export const dynamic = "force-dynamic";
 
-export const revalidate = 0;
-
-export default async function PedidoConfirmadoPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function OrderConfirmedPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  const order = await prisma.order.findUnique({ where: { id }, include: { items: true } });
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: { items: true },
+  });
   if (!order) notFound();
 
-  const waMessage = encodeURIComponent(
-    `Hola! Quiero confirmar mi pedido #${order.id.slice(-8).toUpperCase()} por ${formatPrice(order.total)} (${
-      order.paymentMethod === "TRANSFERENCIA"
-        ? "pago por transferencia"
-        : order.paymentMethod === "EFECTIVO"
-          ? "pago en efectivo"
-          : "Mercado Pago"
-    }).`
-  );
+  const shortId = order.id.slice(-6).toUpperCase();
+  const whatsappMessage = `Hola ${site.name}! Hice el pedido #${shortId} a nombre de ${order.customerName}. Te escribo para coordinar ${
+    order.paymentMethod === "MERCADOPAGO" ? "el envío" : "el pago y el envío"
+  }.`;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
-      <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-brand-gold/15 text-3xl text-brand-gold">
-        ✓
-      </div>
-      <h1 className="font-serif text-3xl text-brand-ink">Pedido recibido</h1>
-      <p className="mt-3 text-brand-ink/70">
-        Numero de pedido <span className="font-semibold text-brand-ink">#{order.id.slice(-8).toUpperCase()}</span>
-      </p>
+    <div className="mx-auto max-w-2xl px-4 py-14">
+      <div className="rounded-3xl border border-brand-line bg-white p-8 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-sage/20">
+          <svg className="h-7 w-7 text-brand-sage-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+          </svg>
+        </div>
+        <h1 className="mt-4 font-serif text-3xl text-brand-ink">¡Pedido recibido!</h1>
+        <p className="mt-2 text-brand-ink-soft">
+          Tu pedido <strong>#{shortId}</strong> quedó registrado.
+        </p>
 
-      <div className="mt-8 rounded-2xl border border-brand-line bg-white p-6 text-left">
-        <ul className="space-y-3">
+        <div className="mt-6 space-y-2 rounded-2xl bg-brand-cream p-5 text-left text-sm">
           {order.items.map((item) => (
-            <li key={item.id} className="flex justify-between text-sm">
-              <span>
-                {item.productName} <span className="text-brand-ink/50">({item.variantLabel})</span> x{item.quantity}
+            <div key={item.id} className="flex justify-between gap-2">
+              <span className="text-brand-ink-soft">
+                {item.quantity}× {item.productName}
+                {item.variantLabel && <span className="text-xs"> ({item.variantLabel})</span>}
               </span>
-              <span className="font-medium">{formatPrice(item.unitPrice * item.quantity)}</span>
-            </li>
+              <span className="shrink-0 font-medium">{formatPrice(item.unitPrice * item.quantity)}</span>
+            </div>
           ))}
-        </ul>
-        <div className="mt-4 flex justify-between border-t border-brand-line pt-4 font-serif text-lg">
-          <span>Total</span>
-          <span>{formatPrice(order.total)}</span>
+          <div className="flex justify-between border-t border-brand-line pt-2 font-semibold text-brand-ink">
+            <span>Total</span>
+            <span>{formatPrice(order.total)}</span>
+          </div>
+          <p className="text-xs text-brand-ink-soft">
+            Pago: {PAYMENT_LABELS[order.paymentMethod]} · Entrega: {SHIPPING_LABELS[order.shippingMethod]}
+          </p>
         </div>
-      </div>
 
-      {order.paymentMethod === "TRANSFERENCIA" && (
-        <div className="mt-6 rounded-2xl bg-brand-cream p-6 text-left text-sm text-brand-ink/80">
-          <p className="font-medium text-brand-ink mb-2">Como continuar con tu pago:</p>
-          <p>Escribinos por WhatsApp y te pasamos los datos bancarios para la transferencia. Apenas confirmemos el pago, preparamos tu pedido.</p>
+        <div className="mt-6 space-y-3 text-sm text-brand-ink-soft">
+          {order.paymentMethod === "TRANSFERENCIA" && (
+            <p>
+              Escribinos por WhatsApp y te pasamos el alias para la
+              transferencia. Tu pedido queda reservado.
+            </p>
+          )}
+          {order.paymentMethod === "EFECTIVO" && (
+            <p>Escribinos por WhatsApp para coordinar la entrega y el pago.</p>
+          )}
+          {order.shippingMethod === "ENVIO_NACIONAL" && (
+            <p>El costo del envío lo coordinamos por WhatsApp según tu destino.</p>
+          )}
         </div>
-      )}
-      {order.paymentMethod === "EFECTIVO" && (
-        <div className="mt-6 rounded-2xl bg-brand-cream p-6 text-left text-sm text-brand-ink/80">
-          <p className="font-medium text-brand-ink mb-2">Pago en efectivo</p>
-          <p>Coordinamos por WhatsApp el retiro en el local (zona Hipodromo, Parana) y abonas en el momento.</p>
-        </div>
-      )}
-      {order.paymentMethod === "MERCADOPAGO" && (
-        <div className="mt-6 rounded-2xl bg-brand-cream p-6 text-left text-sm text-brand-ink/80">
-          <p>Te vamos a avisar por WhatsApp apenas confirmemos el pago y preparemos tu pedido.</p>
-        </div>
-      )}
 
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <a
-          href={`https://wa.me/${WHATSAPP}?text=${waMessage}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-full bg-[#25D366] px-8 py-3 text-sm font-medium text-white"
-        >
-          Confirmar por WhatsApp
-        </a>
-        <Link href="/catalogo" className="rounded-full border border-brand-line px-8 py-3 text-sm text-brand-ink hover:border-brand-gold">
-          Seguir comprando
-        </Link>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <a
+            href={whatsappLink(whatsappMessage)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary"
+          >
+            Coordinar por WhatsApp
+          </a>
+          <Link href="/catalogo" className="btn-secondary">
+            Seguir mirando
+          </Link>
+        </div>
       </div>
     </div>
   );

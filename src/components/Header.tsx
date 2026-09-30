@@ -2,74 +2,69 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { Logo } from "@/components/Logo";
 import { useCartStore, cartCount } from "@/lib/cart-store";
 
-const NAV_LINKS = [
-  { href: "/catalogo", label: "Catalogo" },
-  { href: "/catalogo?coleccion=Ferrari", label: "Coleccion Ferrari" },
-  { href: "/ubicacion", label: "Ubicacion" },
+const NAV = [
+  { href: "/", label: "Inicio" },
+  { href: "/catalogo", label: "Catálogo" },
+  { href: "/mayorista", label: "Mayorista" },
   { href: "/contacto", label: "Contacto" },
 ];
 
 export function Header() {
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const items = useCartStore((s) => s.items);
   const openCart = useCartStore((s) => s.openCart);
   const count = cartCount(items);
 
   return (
-    <header className="sticky top-0 z-30 bg-brand-ink text-brand-cream border-b border-white/10">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="flex flex-col leading-none group">
-          <span className="font-serif text-2xl tracking-[0.15em] text-brand-cream group-hover:text-brand-gold transition-colors">
-            VISION <span className="text-brand-gold">EQUIS</span>
-          </span>
-          <span className="text-[10px] tracking-[0.35em] uppercase mt-1 text-brand-gold-light/70">
-            Ray-Ban Official Dealer &middot; Parana
-          </span>
-        </Link>
+    <header className="sticky top-0 z-40 border-b border-brand-line bg-background/90 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+        <Logo />
 
-        <nav className="hidden md:flex items-center gap-8 text-sm tracking-wide uppercase">
-          {NAV_LINKS.map((link) => (
+        <nav className="hidden items-center gap-7 md:flex">
+          {NAV.map((item) => (
             <Link
-              key={link.href}
-              href={link.href}
-              className="hover:text-brand-gold transition-colors"
+              key={item.href}
+              href={item.href}
+              className={`text-sm font-medium transition-colors hover:text-brand-terracotta ${
+                pathname === item.href ? "text-brand-terracotta" : "text-brand-ink-soft"
+              }`}
             >
-              {link.label}
+              {item.label}
             </Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <button
             onClick={openCart}
-            aria-label="Ver carrito"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 hover:border-brand-gold transition-colors"
+            aria-label="Abrir carrito"
+            className="relative rounded-full border border-brand-line bg-white p-2.5 transition-colors hover:border-brand-terracotta"
           >
-            <svg viewBox="0 0 24 24" className="h-5 w-5 stroke-current fill-none" strokeWidth={1.6}>
-              <path d="M6 6h15l-1.5 9h-12z" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M6 6L5 3H2" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="9" cy="20" r="1.4" />
-              <circle cx="18" cy="20" r="1.4" />
+            <svg className="h-5 w-5 text-brand-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007Z" />
             </svg>
             {count > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-ferrari px-1 text-[11px] font-semibold text-white">
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-terracotta text-[0.65rem] font-bold text-white">
                 {count}
               </span>
             )}
           </button>
 
           <button
-            className="md:hidden flex h-10 w-10 items-center justify-center"
-            aria-label="Menu"
             onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Abrir menú"
+            className="rounded-full border border-brand-line bg-white p-2.5 md:hidden"
           >
-            <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-current fill-none" strokeWidth={1.6}>
+            <svg className="h-5 w-5 text-brand-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               {mobileOpen ? (
-                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
               ) : (
-                <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               )}
             </svg>
           </button>
@@ -77,15 +72,17 @@ export function Header() {
       </div>
 
       {mobileOpen && (
-        <nav className="md:hidden border-t border-white/10 bg-brand-ink px-4 py-4 flex flex-col gap-4 text-sm uppercase tracking-wide">
-          {NAV_LINKS.map((link) => (
+        <nav className="border-t border-brand-line bg-background px-4 py-3 md:hidden">
+          {NAV.map((item) => (
             <Link
-              key={link.href}
-              href={link.href}
+              key={item.href}
+              href={item.href}
               onClick={() => setMobileOpen(false)}
-              className="hover:text-brand-gold transition-colors"
+              className={`block py-2.5 text-sm font-medium ${
+                pathname === item.href ? "text-brand-terracotta" : "text-brand-ink-soft"
+              }`}
             >
-              {link.label}
+              {item.label}
             </Link>
           ))}
         </nav>

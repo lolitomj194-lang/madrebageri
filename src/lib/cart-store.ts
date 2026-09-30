@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { computeUnitPrice, type ProductPricing } from "@/lib/pricing";
 
 export type CartItem = {
   productId: string;
@@ -8,8 +9,8 @@ export type CartItem = {
   name: string;
   variantLabel: string;
   image: string;
-  unitPrice: number;
-  cashUnitPrice: number;
+  pricing: ProductPricing;
+  priceDelta: number;
   quantity: number;
   maxStock: number;
 };
@@ -40,7 +41,9 @@ export const useCartStore = create<CartState>()(
             ),
           });
         } else {
-          set({ items: [...get().items, { ...item, quantity: Math.min(quantity, item.maxStock) }] });
+          set({
+            items: [...get().items, { ...item, quantity: Math.min(quantity, item.maxStock) }],
+          });
         }
         set({ isOpen: true });
       },
@@ -50,7 +53,11 @@ export const useCartStore = create<CartState>()(
       setQuantity: (variantId, quantity) => {
         set({
           items: get().items
-            .map((i) => (i.variantId === variantId ? { ...i, quantity } : i))
+            .map((i) =>
+              i.variantId === variantId
+                ? { ...i, quantity: Math.min(quantity, i.maxStock) }
+                : i
+            )
             .filter((i) => i.quantity > 0),
         });
       },
@@ -58,15 +65,36 @@ export const useCartStore = create<CartState>()(
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
     }),
-    { name: "visionequis-cart" }
+    { name: "aygloriabendita-cart" }
   )
 );
 
+// La cantidad que define el mayorista es la suma de unidades del MISMO
+// producto en el carrito (distintas telas suman juntas).
+export function productQuantity(items: CartItem[], productId: string) {
+  return items
+    .filter((i) => i.productId === productId)
+    .reduce((sum, i) => sum + i.quantity, 0);
+}
+
+export function itemUnitPrice(items: CartItem[], item: CartItem, isCashPayment: boolean) {
+  return computeUnitPrice(
+    item.pricing,
+    item.priceDelta,
+    productQuantity(items, item.productId),
+    isCashPayment
+  );
+}
+
 export function cartTotal(items: CartItem[], isCashPayment = false) {
   return items.reduce(
-    (sum, i) => sum + (isCashPayment ? i.cashUnitPrice : i.unitPrice) * i.quantity,
+    (sum, i) => sum + itemUnitPrice(items, i, isCashPayment).unitPrice * i.quantity,
     0
   );
+}
+
+export function cartHasWholesale(items: CartItem[], isCashPayment = false) {
+  return items.some((i) => itemUnitPrice(items, i, isCashPayment).isWholesale);
 }
 
 export function cartCount(items: CartItem[]) {

@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED');
 
@@ -5,7 +8,7 @@ CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'PAID', 'PREPARING', 'SHIPPED', 'D
 CREATE TYPE "PaymentMethod" AS ENUM ('MERCADOPAGO', 'TRANSFERENCIA', 'EFECTIVO');
 
 -- CreateEnum
-CREATE TYPE "ShippingMethod" AS ENUM ('ENVIO', 'RETIRO_LOCAL');
+CREATE TYPE "ShippingMethod" AS ENUM ('ENVIO_NACIONAL', 'RETIRO');
 
 -- CreateTable
 CREATE TABLE "Category" (
@@ -24,8 +27,10 @@ CREATE TABLE "Product" (
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
     "description" TEXT,
-    "collection" TEXT,
-    "basePrice" INTEGER NOT NULL,
+    "price" INTEGER NOT NULL,
+    "cashPrice" INTEGER,
+    "wholesalePrice" INTEGER,
+    "wholesaleMinQty" INTEGER,
     "featured" BOOLEAN NOT NULL DEFAULT false,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "categoryId" TEXT NOT NULL,
@@ -46,18 +51,18 @@ CREATE TABLE "ProductImage" (
 );
 
 -- CreateTable
-CREATE TABLE "ProductVariant" (
+CREATE TABLE "Variant" (
     "id" TEXT NOT NULL,
     "productId" TEXT NOT NULL,
-    "colorName" TEXT NOT NULL,
-    "colorHex" TEXT NOT NULL,
-    "lensColor" TEXT,
-    "sku" TEXT NOT NULL,
-    "priceDelta" INTEGER NOT NULL DEFAULT 0,
-    "stock" INTEGER NOT NULL DEFAULT 0,
+    "name" TEXT NOT NULL,
     "imageUrl" TEXT,
+    "stock" INTEGER NOT NULL DEFAULT 0,
+    "priceDelta" INTEGER NOT NULL DEFAULT 0,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "ProductVariant_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Variant_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -69,9 +74,11 @@ CREATE TABLE "Order" (
     "address" TEXT,
     "city" TEXT,
     "province" TEXT,
+    "postalCode" TEXT,
     "shippingMethod" "ShippingMethod" NOT NULL,
     "paymentMethod" "PaymentMethod" NOT NULL,
     "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+    "isWholesale" BOOLEAN NOT NULL DEFAULT false,
     "total" INTEGER NOT NULL,
     "notes" TEXT,
     "mpPaymentId" TEXT,
@@ -92,6 +99,7 @@ CREATE TABLE "OrderItem" (
     "variantLabel" TEXT,
     "quantity" INTEGER NOT NULL,
     "unitPrice" INTEGER NOT NULL,
+    "isWholesale" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "OrderItem_pkey" PRIMARY KEY ("id")
 );
@@ -120,16 +128,16 @@ CREATE UNIQUE INDEX "Product_slug_key" ON "Product"("slug");
 CREATE INDEX "Product_categoryId_idx" ON "Product"("categoryId");
 
 -- CreateIndex
-CREATE INDEX "Product_collection_idx" ON "Product"("collection");
-
--- CreateIndex
 CREATE INDEX "ProductImage_productId_idx" ON "ProductImage"("productId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ProductVariant_sku_key" ON "ProductVariant"("sku");
+CREATE INDEX "Variant_productId_idx" ON "Variant"("productId");
 
 -- CreateIndex
-CREATE INDEX "ProductVariant_productId_idx" ON "ProductVariant"("productId");
+CREATE INDEX "Order_status_idx" ON "Order"("status");
+
+-- CreateIndex
+CREATE INDEX "Order_createdAt_idx" ON "Order"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "OrderItem_orderId_idx" ON "OrderItem"("orderId");
@@ -144,7 +152,7 @@ ALTER TABLE "Product" ADD CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("cat
 ALTER TABLE "ProductImage" ADD CONSTRAINT "ProductImage_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ProductVariant" ADD CONSTRAINT "ProductVariant_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Variant" ADD CONSTRAINT "Variant_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -153,4 +161,4 @@ ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("or
 ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "ProductVariant"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "Variant"("id") ON DELETE SET NULL ON UPDATE CASCADE;

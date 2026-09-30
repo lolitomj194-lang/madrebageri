@@ -1,296 +1,406 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { ImageUploadButton } from "@/components/admin/ImageUploadButton";
+import type { ProductInput, VariantInput } from "@/lib/product-input";
 
 type Category = { id: string; name: string };
 
-type Variant = {
-  colorName: string;
-  colorHex: string;
-  lensColor: string;
-  sku: string;
-  stock: number;
-  priceDelta: number;
-};
-
-type InitialData = {
-  id?: string;
+type ExistingProduct = {
+  id: string;
   name: string;
-  description: string;
-  collection: string;
-  basePrice: number;
+  description: string | null;
+  price: number;
   cashPrice: number | null;
+  wholesalePrice: number | null;
+  wholesaleMinQty: number | null;
   categoryId: string;
   featured: boolean;
   active: boolean;
   images: { url: string }[];
-  variants: Variant[];
+  variants: {
+    id: string;
+    name: string;
+    imageUrl: string | null;
+    stock: number;
+    priceDelta: number;
+    active: boolean;
+  }[];
 };
 
-const COLLECTIONS = ["Ferrari", "Signature", "Classic"];
+type FormVariant = VariantInput & { key: string };
 
-const emptyVariant = (): Variant => ({
-  colorName: "",
-  colorHex: "#111111",
-  lensColor: "",
-  sku: "",
-  stock: 0,
-  priceDelta: 0,
-});
+let keyCounter = 0;
+function nextKey() {
+  return `v${++keyCounter}`;
+}
 
-export function ProductForm({ categories, initial }: { categories: Category[]; initial?: InitialData }) {
+export function ProductForm({
+  categories,
+  product,
+}: {
+  categories: Category[];
+  product?: ExistingProduct;
+}) {
   const router = useRouter();
-  const isEdit = Boolean(initial?.id);
+  const isEdit = Boolean(product);
 
-  const [name, setName] = useState(initial?.name ?? "");
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [collection, setCollection] = useState(initial?.collection ?? "Classic");
-  const [basePrice, setBasePrice] = useState(initial?.basePrice ?? 0);
-  const [cashPrice, setCashPrice] = useState(initial?.cashPrice != null ? String(initial.cashPrice) : "");
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? "");
-  const [featured, setFeatured] = useState(initial?.featured ?? false);
-  const [active, setActive] = useState(initial?.active ?? true);
-  const [images, setImages] = useState<string[]>(initial?.images.map((i) => i.url) ?? [""]);
-  const [variants, setVariants] = useState<Variant[]>(initial?.variants.length ? initial.variants : [emptyVariant()]);
+  const [name, setName] = useState(product?.name ?? "");
+  const [description, setDescription] = useState(product?.description ?? "");
+  const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? "");
+  const [price, setPrice] = useState(product ? String(product.price) : "");
+  const [cashPrice, setCashPrice] = useState(product?.cashPrice != null ? String(product.cashPrice) : "");
+  const [wholesalePrice, setWholesalePrice] = useState(
+    product?.wholesalePrice != null ? String(product.wholesalePrice) : ""
+  );
+  const [wholesaleMinQty, setWholesaleMinQty] = useState(
+    product?.wholesaleMinQty != null ? String(product.wholesaleMinQty) : ""
+  );
+  const [featured, setFeatured] = useState(product?.featured ?? false);
+  const [active, setActive] = useState(product?.active ?? true);
+  const [images, setImages] = useState<string[]>(product?.images.map((i) => i.url) ?? []);
+  const [imageUrlDraft, setImageUrlDraft] = useState("");
+  const [variants, setVariants] = useState<FormVariant[]>(
+    product?.variants.map((v) => ({
+      key: nextKey(),
+      id: v.id,
+      name: v.name,
+      imageUrl: v.imageUrl,
+      stock: v.stock,
+      priceDelta: v.priceDelta,
+      active: v.active,
+    })) ?? [{ key: nextKey(), name: "", imageUrl: null, stock: 1, priceDelta: 0, active: true }]
+  );
+
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  function updateVariant(index: number, patch: Partial<Variant>) {
-    setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, ...patch } : v)));
-  }
-
-  function removeVariant(index: number) {
-    setVariants((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateImage(index: number, value: string) {
-    setImages((prev) => prev.map((url, i) => (i === index ? value : url)));
-  }
-
-  function removeImage(index: number) {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+  function updateVariant(key: string, patch: Partial<FormVariant>) {
+    setVariants((vs) => vs.map((v) => (v.key === key ? { ...v, ...patch } : v)));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSaving(true);
     setError(null);
 
-    const cleanImages = images.filter((url) => url.trim());
-    const cleanVariants = variants.filter((v) => v.colorName.trim());
-
-    if (!cleanVariants.length) {
-      setError("Agrega al menos una variante de color");
-      return;
-    }
-    if (cleanVariants.some((v) => !v.sku.trim())) {
-      setError("Todas las variantes necesitan un SKU");
-      return;
-    }
-
-    setLoading(true);
-    const payload = {
+    const body: ProductInput = {
       name,
-      description,
-      collection,
-      basePrice: Number(basePrice),
-      cashPrice: cashPrice.trim() === "" ? null : Number(cashPrice),
+      description: description || undefined,
+      price: Number(price),
+      cashPrice: cashPrice ? Number(cashPrice) : null,
+      wholesalePrice: wholesalePrice ? Number(wholesalePrice) : null,
+      wholesaleMinQty: wholesaleMinQty ? Number(wholesaleMinQty) : null,
       categoryId,
       featured,
       active,
-      images: cleanImages.map((url) => ({ url })),
-      variants: cleanVariants,
+      images: images.map((url) => ({ url })),
+      variants: variants.map((v) => ({
+        id: v.id,
+        name: v.name,
+        imageUrl: v.imageUrl,
+        active: v.active,
+        stock: Number(v.stock) || 0,
+        priceDelta: Number(v.priceDelta) || 0,
+      })),
     };
 
-    const res = await fetch(isEdit ? `/api/admin/products/${initial!.id}` : "/api/admin/products", {
-      method: isEdit ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    setLoading(false);
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "No se pudo guardar el producto");
-      return;
+    try {
+      const res = await fetch(isEdit ? `/api/admin/products/${product!.id}` : "/api/admin/products", {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "No se pudo guardar");
+        setSaving(false);
+        return;
+      }
+      router.push("/admin/productos");
+      router.refresh();
+    } catch {
+      setError("Error de conexión");
+      setSaving(false);
     }
-
-    router.push("/admin/productos");
-    router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      <section className="rounded-2xl border border-brand-line bg-white p-6 space-y-4">
-        <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50">Datos generales</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <input
-            required
-            placeholder="Nombre del producto"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="input-field sm:col-span-2"
-          />
-          <textarea
-            placeholder="Descripcion"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="input-field sm:col-span-2"
-            rows={3}
-          />
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="input-field">
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select value={collection} onChange={(e) => setCollection(e.target.value)} className="input-field">
-            {COLLECTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <div>
+      {/* Datos basicos */}
+      <section className="space-y-3 rounded-2xl border border-brand-line bg-white p-5">
+        <h2 className="font-serif text-lg text-brand-ink">Datos del producto</h2>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          placeholder="Nombre (ej: Almohadón 40x40 con cierre) *"
+          className="input-field"
+        />
+        <select
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          required
+          className="input-field"
+        >
+          <option value="">Elegir categoría *</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={4}
+          placeholder="Descripción: medidas, materiales, qué incluye..."
+          className="input-field resize-none"
+        />
+        <div className="flex flex-wrap gap-5 pt-1 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+            Destacado en la portada
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+            Publicado en la tienda
+          </label>
+        </div>
+      </section>
+
+      {/* Precios */}
+      <section className="space-y-3 rounded-2xl border border-brand-line bg-white p-5">
+        <h2 className="font-serif text-lg text-brand-ink">Precios</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm">
+            <span className="mb-1 block text-brand-ink-soft">Precio de lista (tarjeta / Mercado Pago) *</span>
             <input
               type="number"
+              min={1}
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
               required
-              min={0}
-              placeholder="Precio tarjeta/Mercado Pago (ARS)"
-              value={basePrice}
-              onChange={(e) => setBasePrice(Number(e.target.value))}
-              className="input-field w-full"
+              placeholder="18000"
+              className="input-field"
             />
-            <p className="mt-1 text-xs text-brand-ink/50">Precio que se muestra por defecto en la tienda</p>
-          </div>
-          <div>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-brand-ink-soft">Precio efectivo / transferencia (opcional)</span>
             <input
               type="number"
-              min={0}
-              placeholder="Precio efectivo/transferencia (opcional)"
+              min={1}
               value={cashPrice}
               onChange={(e) => setCashPrice(e.target.value)}
-              className="input-field w-full"
+              placeholder="16500"
+              className="input-field"
             />
-            <p className="mt-1 text-xs text-brand-ink/50">Dejar vacio si es el mismo precio que tarjeta</p>
-          </div>
-          <div className="flex items-center gap-6 sm:col-span-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
-              Destacado
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-              Activo (visible en la tienda)
-            </label>
-          </div>
+          </label>
         </div>
-      </section>
-
-      <section className="rounded-2xl border border-brand-line bg-white p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50">Imagenes (URL)</h2>
-          <button type="button" onClick={() => setImages((p) => [...p, ""])} className="text-sm text-brand-gold hover:underline">
-            + Agregar imagen
-          </button>
-        </div>
-        <p className="text-xs text-brand-ink/50">
-          Pega la URL de cada foto (por ejemplo subida a Cloudinary, Imgur o Google Drive publico).
-        </p>
-        <div className="space-y-2">
-          {images.map((url, i) => (
-            <div key={i} className="flex gap-2">
+        <div className="rounded-xl bg-brand-sage/10 p-4">
+          <p className="mb-2 text-sm font-medium text-brand-ink">Venta mayorista (opcional)</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm">
+              <span className="mb-1 block text-brand-ink-soft">Precio mayorista por unidad</span>
               <input
-                placeholder="https://..."
-                value={url}
-                onChange={(e) => updateImage(i, e.target.value)}
-                className="input-field flex-1"
+                type="number"
+                min={1}
+                value={wholesalePrice}
+                onChange={(e) => setWholesalePrice(e.target.value)}
+                placeholder="13500"
+                className="input-field"
               />
-              <button type="button" onClick={() => removeImage(i)} className="text-brand-ferrari text-sm px-2">
-                Quitar
-              </button>
-            </div>
-          ))}
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-brand-ink-soft">Cantidad mínima (unidades)</span>
+              <input
+                type="number"
+                min={2}
+                value={wholesaleMinQty}
+                onChange={(e) => setWholesaleMinQty(e.target.value)}
+                placeholder="10"
+                className="input-field"
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-brand-ink-soft">
+            Al llegar a la cantidad mínima (sumando todas las telas del producto), el
+            carrito aplica solo el precio mayorista.
+          </p>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-brand-line bg-white p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50">Variantes de color y stock</h2>
+      {/* Fotos generales */}
+      <section className="space-y-3 rounded-2xl border border-brand-line bg-white p-5">
+        <h2 className="font-serif text-lg text-brand-ink">Fotos del producto</h2>
+        <p className="text-xs text-brand-ink-soft">
+          Fotos generales del modelo. Cada tela puede tener además su propia foto más abajo.
+        </p>
+        {images.length > 0 && (
+          <div className="flex flex-wrap gap-3">
+            {images.map((url, i) => (
+              <div key={url} className="relative">
+                <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-brand-line">
+                  <Image src={url} alt="" fill sizes="96px" className="object-cover" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setImages((imgs) => imgs.filter((_, j) => j !== i))}
+                  aria-label="Quitar foto"
+                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-brand-ink text-xs text-white"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <ImageUploadButton onUploaded={(url) => setImages((imgs) => [...imgs, url])} />
+          <span className="text-xs text-brand-ink-soft">o pegá una URL:</span>
+          <input
+            value={imageUrlDraft}
+            onChange={(e) => setImageUrlDraft(e.target.value)}
+            placeholder="https://..."
+            className="input-field max-w-56"
+          />
           <button
             type="button"
-            onClick={() => setVariants((p) => [...p, emptyVariant()])}
-            className="text-sm text-brand-gold hover:underline"
+            onClick={() => {
+              if (imageUrlDraft.trim()) {
+                setImages((imgs) => [...imgs, imageUrlDraft.trim()]);
+                setImageUrlDraft("");
+              }
+            }}
+            className="rounded-full border border-brand-line bg-white px-3 py-2 text-sm hover:border-brand-terracotta"
           >
-            + Agregar variante
+            Agregar
           </button>
-        </div>
-
-        <div className="space-y-4">
-          {variants.map((v, i) => (
-            <div key={i} className="grid grid-cols-2 gap-3 rounded-xl border border-brand-line p-4 sm:grid-cols-6">
-              <input
-                placeholder="Color (ej. Negro)"
-                value={v.colorName}
-                onChange={(e) => updateVariant(i, { colorName: e.target.value })}
-                className="input-field sm:col-span-2"
-              />
-              <input
-                type="color"
-                value={v.colorHex}
-                onChange={(e) => updateVariant(i, { colorHex: e.target.value })}
-                className="h-10 w-full rounded border border-brand-line"
-              />
-              <input
-                placeholder="Lente (opcional)"
-                value={v.lensColor}
-                onChange={(e) => updateVariant(i, { lensColor: e.target.value })}
-                className="input-field sm:col-span-2"
-              />
-              <input
-                placeholder="SKU"
-                value={v.sku}
-                onChange={(e) => updateVariant(i, { sku: e.target.value })}
-                className="input-field"
-              />
-              <input
-                type="number"
-                min={0}
-                placeholder="Stock"
-                value={v.stock}
-                onChange={(e) => updateVariant(i, { stock: Number(e.target.value) })}
-                className="input-field"
-              />
-              <input
-                type="number"
-                placeholder="Ajuste precio (+/-)"
-                value={v.priceDelta}
-                onChange={(e) => updateVariant(i, { priceDelta: Number(e.target.value) })}
-                className="input-field"
-              />
-              <button
-                type="button"
-                onClick={() => removeVariant(i)}
-                className="text-brand-ferrari text-sm sm:col-span-6 text-left"
-              >
-                Quitar variante
-              </button>
-            </div>
-          ))}
         </div>
       </section>
 
-      {error && <p className="text-sm text-brand-ferrari">{error}</p>}
+      {/* Telas */}
+      <section className="space-y-4 rounded-2xl border border-brand-line bg-white p-5">
+        <div>
+          <h2 className="font-serif text-lg text-brand-ink">Telas / diseños disponibles</h2>
+          <p className="text-xs text-brand-ink-soft">
+            Cada tela tiene su foto y su stock. Cuando se agota, poné el stock en 0 o
+            desmarcá &quot;visible&quot;: el producto sigue publicado con el resto.
+          </p>
+        </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-full bg-brand-ink px-10 py-3 text-sm uppercase tracking-wide text-brand-cream hover:bg-brand-gold hover:text-brand-ink transition-colors disabled:opacity-50"
-      >
-        {loading ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear producto"}
-      </button>
+        {variants.map((variant, index) => (
+          <div key={variant.key} className="space-y-3 rounded-xl border border-brand-line p-4">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-brand-ink-soft">
+                Tela {index + 1}
+              </span>
+              {variants.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setVariants((vs) => vs.filter((v) => v.key !== variant.key))}
+                  className="text-xs text-red-600 underline"
+                >
+                  Eliminar
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-start gap-4">
+              <div className="space-y-2">
+                {variant.imageUrl ? (
+                  <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-brand-line">
+                    <Image src={variant.imageUrl} alt="" fill sizes="96px" className="object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => updateVariant(variant.key, { imageUrl: null })}
+                      aria-label="Quitar foto"
+                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-ink/80 text-xs text-white"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex h-24 w-24 items-center justify-center rounded-xl border border-dashed border-brand-line text-xs text-brand-ink-soft">
+                    Sin foto
+                  </div>
+                )}
+                <ImageUploadButton
+                  label="Foto de la tela"
+                  onUploaded={(url) => updateVariant(variant.key, { imageUrl: url })}
+                />
+              </div>
+
+              <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                <label className="text-sm sm:col-span-2">
+                  <span className="mb-1 block text-brand-ink-soft">Nombre de la tela *</span>
+                  <input
+                    value={variant.name}
+                    onChange={(e) => updateVariant(variant.key, { name: e.target.value })}
+                    required
+                    placeholder="Ej: Floral terracota"
+                    className="input-field"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-brand-ink-soft">Stock (unidades)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={variant.stock}
+                    onChange={(e) => updateVariant(variant.key, { stock: Number(e.target.value) })}
+                    className="input-field"
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-brand-ink-soft">Ajuste de precio (opcional)</span>
+                  <input
+                    type="number"
+                    value={variant.priceDelta ?? 0}
+                    onChange={(e) => updateVariant(variant.key, { priceDelta: Number(e.target.value) })}
+                    placeholder="0"
+                    className="input-field"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={variant.active ?? true}
+                    onChange={(e) => updateVariant(variant.key, { active: e.target.checked })}
+                  />
+                  Visible en la tienda
+                </label>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={() =>
+            setVariants((vs) => [
+              ...vs,
+              { key: nextKey(), name: "", imageUrl: null, stock: 1, priceDelta: 0, active: true },
+            ])
+          }
+          className="btn-secondary"
+        >
+          + Agregar tela
+        </button>
+      </section>
+
+      {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+
+      <div className="flex gap-3">
+        <button type="submit" disabled={saving} className="btn-primary">
+          {saving ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear producto"}
+        </button>
+        <button type="button" onClick={() => router.push("/admin/productos")} className="btn-secondary">
+          Cancelar
+        </button>
+      </div>
     </form>
   );
 }

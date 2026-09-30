@@ -1,105 +1,92 @@
-# Vision Equis - Ecommerce Ray-Ban (Parana)
+# Ay Gloria Bendita — Tienda online
 
-Tienda online para Vision Equis, distribuidor autorizado Ray-Ban en Parana,
-Entre Rios. Next.js (App Router) + Prisma + PostgreSQL, con panel de
-administracion propio para cargar productos, stock y gestionar pedidos.
+Ecommerce de blanquería, deco y accesorios artesanales (almohadones,
+sábanas, carteras, materos y más), con venta minorista y mayorista y envíos
+a todo el país. Pensada para un negocio donde **las telas rotan**: cada
+producto es un "modelo" y cada tela/diseño disponible es una variante con su
+propia foto y stock.
+
+## Cómo está pensada
+
+- **Producto = modelo, variante = tela.** "Almohadón 40x40" se publica una
+  sola vez; las telas disponibles se agregan/agotan desde el panel. Cuando
+  una tela se termina, se pone en stock 0 (o se oculta) y el producto sigue
+  publicado con el resto.
+- **Minorista y mayorista juntos.** Cada producto puede tener precio
+  mayorista + cantidad mínima. Al llegar a esa cantidad (sumando telas del
+  mismo producto), el carrito y el servidor aplican el precio mayorista
+  automáticamente. Sin registro ni lista de precios aparte.
+- **Precio efectivo/transferencia** opcional con descuento sobre el precio
+  de lista (tarjeta / Mercado Pago).
+- **WhatsApp como canal de cierre.** Botón flotante, consulta de telas por
+  producto y coordinación de envío/pago tras el pedido.
+- **Envíos**: el costo se coordina por WhatsApp según destino y volumen (un
+  acolchado no cuesta lo mismo que un matero); no hay cotizador automático.
 
 ## Stack
 
 - Next.js 16 (App Router, Turbopack)
-- PostgreSQL + Prisma ORM
+- PostgreSQL + Prisma ORM (driver adapter `pg`)
 - Tailwind CSS v4
-- Framer Motion (animaciones)
 - Zustand (carrito, persistido en el navegador)
-- Mercado Pago (Checkout Pro)
-- JWT + cookie httpOnly para el login del panel admin
+- Mercado Pago (Checkout Pro) — opcional hasta configurar el token
+- Vercel Blob para subir fotos desde el celular — opcional, también se
+  pueden pegar URLs
+- JWT + cookie httpOnly para el panel admin
 
 ## Desarrollo local
 
-1. Instalar dependencias (esto tambien genera el cliente de Prisma via `postinstall`):
+1. `npm install` (corre `prisma generate` vía `postinstall`)
+2. Crear una base Postgres y un `.env` con las variables de abajo
+3. `npx prisma migrate deploy && npm run seed`
+4. `npm run dev`
 
-   ```bash
-   npm install
-   ```
-
-2. Crear una base de datos Postgres local y copiar `.env.example`... (no hay
-   `.env.example` en el repo por seguridad; ver la seccion de variables de
-   entorno mas abajo) a `.env` con tus datos.
-
-3. Correr las migraciones y cargar datos de ejemplo:
-
-   ```bash
-   npx prisma migrate dev
-   npm run seed
-   ```
-
-   El seed crea ~12 productos de ejemplo (incluyendo la linea Ferrari) y un
-   usuario admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD` del `.env`).
-
-4. Levantar el servidor:
-
-   ```bash
-   npm run dev
-   ```
+El seed crea 12 productos de ejemplo con telas/stock y el usuario admin
+(`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
 
 ## Variables de entorno
 
-| Variable | Descripcion |
+| Variable | Descripción |
 |---|---|
-| `DATABASE_URL` | Cadena de conexion a PostgreSQL |
-| `JWT_SECRET` | Secreto para firmar la sesion del panel admin (cambiar en produccion) |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Credenciales que crea el script de seed |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Numero de WhatsApp en formato internacional sin `+` (ej `5493435173734`) |
-| `NEXT_PUBLIC_INSTAGRAM` | Usuario de Instagram (sin `@`) |
-| `MERCADOPAGO_ACCESS_TOKEN` | Access token de Mercado Pago (produccion o sandbox) |
+| `DATABASE_URL` | Conexión a PostgreSQL (puede ser un pooler) |
+| `DIRECT_URL` | (Opcional) conexión directa para `prisma migrate`; si falta se usa `DATABASE_URL` |
+| `JWT_SECRET` | Secreto de la sesión admin (cambiar en producción) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Credenciales que crea el seed |
+| `SEED_SECRET` | Habilita el seed remoto una única vez (ver deploy) |
+| `NEXT_PUBLIC_SITE_NAME` | Nombre de la tienda (default: "Ay Gloria Bendita") |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | WhatsApp en formato internacional sin `+` (ej `5493435000000`) |
+| `NEXT_PUBLIC_INSTAGRAM` | Usuario de Instagram sin `@` (default: `aygloriabendita.deco`) |
+| `NEXT_PUBLIC_BASE_URL` | URL pública del sitio (back_urls y webhook de Mercado Pago) |
+| `MERCADOPAGO_ACCESS_TOKEN` | Access token de Mercado Pago |
 | `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` | Public key de Mercado Pago |
-| `NEXT_PUBLIC_BASE_URL` | URL publica del sitio (usada en los `back_urls` y webhook de Mercado Pago) |
+| `BLOB_READ_WRITE_TOKEN` | Token de Vercel Blob (se crea solo al agregar un Blob store en Vercel) |
 
-Mientras `MERCADOPAGO_ACCESS_TOKEN` este vacio, el checkout con Mercado Pago
-devuelve un error controlado y el cliente puede elegir transferencia o
-efectivo en su lugar.
+Mientras `MERCADOPAGO_ACCESS_TOKEN` esté vacío, el checkout con Mercado
+Pago devuelve un error controlado y el cliente puede elegir transferencia o
+efectivo. Mientras falte `BLOB_READ_WRITE_TOKEN`, el panel avisa y permite
+pegar URLs de imágenes.
 
-## Panel de administracion
+## Panel de administración (`/admin`)
 
-`/admin/login` - permite:
+Pensado para usarse desde el celular:
 
-- Ver resumen de ventas, pedidos pendientes y stock bajo
-- Crear, editar y eliminar productos (precio tarjeta/Mercado Pago, precio
-  efectivo/transferencia opcional, categoria, coleccion, imagenes por URL,
-  variantes de color con stock y ajuste de precio)
-- Ver pedidos y cambiar su estado (pendiente, pagado, preparando,
-  enviado, entregado, cancelado). Al cancelar un pedido se repone el stock
-  reservado automaticamente.
-
-Las imagenes de producto se cargan pegando una URL (por ejemplo subida a
-Cloudinary, Imgur o similar) - no hay upload de archivos integrado todavia.
-
-### Precio tarjeta vs. efectivo/transferencia
-
-Cada producto tiene un precio base (el que se muestra por defecto, pensado
-para Mercado Pago/tarjeta) y un precio opcional para efectivo/transferencia.
-Si se deja vacio el precio efectivo, se cobra el mismo precio base. El total
-del carrito se recalcula automaticamente en el checkout segun el medio de
-pago elegido, y el precio final se recalcula tambien en el servidor al crear
-el pedido (nunca se confia en el precio que manda el navegador).
+- **Resumen**: pedidos pendientes, ventas del mes, telas por agotarse.
+- **Productos**: crear/editar con fotos subidas desde la cámara/galería,
+  telas con foto y stock propio, precios minorista/efectivo/mayorista,
+  botón rápido "agotar" por tela y aumento masivo de precios por porcentaje
+  (redondeado a los $100).
+- **Pedidos**: detalle completo, link directo al WhatsApp del cliente y
+  cambio de estado (al cancelar se repone el stock automáticamente).
 
 ## Deploy en Vercel
 
-1. Crear una base de datos Postgres administrada (Neon, Supabase o Vercel
-   Postgres) y usar su `DATABASE_URL` en las variables de entorno del
-   proyecto en Vercel.
-2. Configurar todas las variables de entorno de la tabla de arriba en Vercel.
-3. Correr `npx prisma migrate deploy` contra esa base (una vez, desde tu
-   maquina o un job de CI) y `npm run seed` si queres cargar los datos de
-   ejemplo iniciales.
-4. Conectar el repo en Vercel y deployar. El build corre `prisma generate`
-   automaticamente via `postinstall`.
-5. Cargar el catalogo real (los ~100 productos Ray-Ban) desde el panel
-   `/admin/productos` reemplazando los datos de ejemplo.
-
-## Datos de ejemplo (seed)
-
-`prisma/seed.ts` contiene un catalogo de PLACEHOLDER (nombres de modelos
-Ray-Ban reales pero precios e imagenes de ejemplo) para poder probar el
-sitio de punta a punta antes de cargar el catalogo real de ~100 productos
-desde el panel de administracion.
+1. Crear una base Postgres administrada (Neon, Supabase o Vercel Postgres)
+   y configurar `DATABASE_URL` (y `DIRECT_URL` si usa pooler).
+2. Cargar todas las variables de entorno en Vercel.
+3. Conectar el repo y deployar: el build corre `prisma migrate deploy`
+   (script `vercel-build`).
+4. Crear un Blob store en Storage para habilitar la subida de fotos.
+5. Primera vez: visitar `https://<sitio>/api/admin/seed-init?secret=<SEED_SECRET>`
+   para crear el admin y el catálogo de ejemplo (solo funciona con la base
+   vacía). Después, cargar el catálogo real desde `/admin/productos` y
+   borrar los productos de ejemplo.

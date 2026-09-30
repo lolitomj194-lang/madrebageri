@@ -1,2 +1,2 @@
--- AlterTable
-ALTER TABLE "Product" ADD COLUMN     "cashPrice" INTEGER;
+-- Migracion vacia: el esquema completo vive en la migracion init anterior.
+-- (Este directorio se conserva del historial; no aplica cambios.)

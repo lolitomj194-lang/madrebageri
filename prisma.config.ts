@@ -9,9 +9,10 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   // Used only by the Prisma CLI (migrate/introspect). The app itself connects
-  // via the PrismaPg adapter using DATABASE_URL (see src/lib/prisma.ts), which
-  // can point at a connection pooler instead.
+  // via the PrismaPg adapter using DATABASE_URL (see src/lib/prisma.ts). If the
+  // DB has a pooler, point DATABASE_URL at the pooler and DIRECT_URL at the
+  // direct connection; with a single connection string, DATABASE_URL alone works.
   datasource: {
-    url: process.env["DIRECT_URL"],
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

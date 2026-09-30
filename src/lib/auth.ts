@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev-only-secret-change-in-production-please";
-export const ADMIN_COOKIE_NAME = "ve_admin_session";
+export const ADMIN_COOKIE_NAME = "agb_admin_session";
 
 export type AdminTokenPayload = {
   adminId: string;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPreferenceClient } from "@/lib/mercadopago";
+import { computeUnitPrice } from "@/lib/pricing";
 import type { CreateOrderRequest } from "@/lib/order-types";
 
 export async function POST(req: NextRequest) {
@@ -8,22 +9,45 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "JSON invalido" }, { status: 400 });
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
   if (!body.customerName?.trim() || !body.phone?.trim()) {
-    return NextResponse.json({ error: "Nombre y telefono son obligatorios" }, { status: 400 });
+    return NextResponse.json({ error: "Nombre y teléfono son obligatorios" }, { status: 400 });
   }
   if (!body.items?.length) {
-    return NextResponse.json({ error: "El carrito esta vacio" }, { status: 400 });
+    return NextResponse.json({ error: "El carrito está vacío" }, { status: 400 });
   }
-  if (body.shippingMethod === "ENVIO" && (!body.address?.trim() || !body.city?.trim())) {
-    return NextResponse.json({ error: "Direccion y ciudad son obligatorias para envio" }, { status: 400 });
+  if (
+    body.shippingMethod === "ENVIO_NACIONAL" &&
+    (!body.address?.trim() || !body.city?.trim() || !body.province?.trim())
+  ) {
+    return NextResponse.json(
+      { error: "Dirección, localidad y provincia son obligatorias para el envío" },
+      { status: 400 }
+    );
   }
 
   try {
     const order = await prisma.$transaction(async (tx) => {
+      // Cantidad total por producto (todas las telas juntas) para decidir
+      // si corresponde precio mayorista.
+      const qtyByProduct = new Map<string, number>();
+      for (const item of body.items) {
+        if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+          throw new Error("Cantidad inválida");
+        }
+        qtyByProduct.set(
+          item.productId,
+          (qtyByProduct.get(item.productId) ?? 0) + item.quantity
+        );
+      }
+
+      const isCashPayment =
+        body.paymentMethod === "TRANSFERENCIA" || body.paymentMethod === "EFECTIVO";
+
       let total = 0;
+      let orderHasWholesale = false;
       const itemsData: {
         productId: string;
         variantId: string;
@@ -31,41 +55,48 @@ export async function POST(req: NextRequest) {
         variantLabel: string;
         quantity: number;
         unitPrice: number;
+        isWholesale: boolean;
       }[] = [];
 
       for (const item of body.items) {
-        const variant = await tx.productVariant.findUnique({
+        const variant = await tx.variant.findUnique({
           where: { id: item.variantId },
           include: { product: true },
         });
-        if (!variant || variant.productId !== item.productId) {
-          throw new Error(`Variante no encontrada`);
+        if (!variant || variant.productId !== item.productId || !variant.active) {
+          throw new Error("Alguna tela del carrito ya no está disponible");
         }
-        if (variant.stock < item.quantity) {
-          throw new Error(`Sin stock suficiente de ${variant.product.name} (${variant.colorName})`);
+        if (!variant.product.active) {
+          throw new Error(`${variant.product.name} ya no está disponible`);
         }
 
-        const isCashPayment = body.paymentMethod === "TRANSFERENCIA" || body.paymentMethod === "EFECTIVO";
-        const baseForPayment = isCashPayment
-          ? variant.product.cashPrice ?? variant.product.basePrice
-          : variant.product.basePrice;
-        const unitPrice = baseForPayment + variant.priceDelta;
+        const { unitPrice, isWholesale } = computeUnitPrice(
+          variant.product,
+          variant.priceDelta,
+          qtyByProduct.get(item.productId) ?? item.quantity,
+          isCashPayment
+        );
+        orderHasWholesale = orderHasWholesale || isWholesale;
         total += unitPrice * item.quantity;
         itemsData.push({
           productId: variant.productId,
           variantId: variant.id,
           productName: variant.product.name,
-          variantLabel: `${variant.colorName}${variant.lensColor ? ` · ${variant.lensColor}` : ""}`,
+          variantLabel: variant.name,
           quantity: item.quantity,
           unitPrice,
+          isWholesale,
         });
 
-        const updated = await tx.productVariant.updateMany({
+        // Descuento de stock atomico: si otro pedido lo gano, falla.
+        const updated = await tx.variant.updateMany({
           where: { id: variant.id, stock: { gte: item.quantity } },
           data: { stock: { decrement: item.quantity } },
         });
         if (updated.count === 0) {
-          throw new Error(`Sin stock suficiente de ${variant.product.name} (${variant.colorName})`);
+          throw new Error(
+            `Sin stock suficiente de ${variant.product.name} (${variant.name})`
+          );
         }
       }
 
@@ -77,9 +108,11 @@ export async function POST(req: NextRequest) {
           address: body.address?.trim() || null,
           city: body.city?.trim() || null,
           province: body.province?.trim() || null,
+          postalCode: body.postalCode?.trim() || null,
           shippingMethod: body.shippingMethod,
           paymentMethod: body.paymentMethod,
           notes: body.notes?.trim() || null,
+          isWholesale: orderHasWholesale,
           total,
           items: { create: itemsData },
         },
@@ -91,7 +124,7 @@ export async function POST(req: NextRequest) {
       const preferenceClient = getPreferenceClient();
       if (!preferenceClient) {
         return NextResponse.json(
-          { error: "Mercado Pago no esta configurado todavia. Elegi otro medio de pago." },
+          { error: "Mercado Pago no está configurado todavía. Elegí otro medio de pago." },
           { status: 503 }
         );
       }
@@ -101,7 +134,7 @@ export async function POST(req: NextRequest) {
         body: {
           items: order.items.map((item) => ({
             id: item.id,
-            title: `${item.productName} - ${item.variantLabel}`,
+            title: `${item.productName}${item.variantLabel ? ` - ${item.variantLabel}` : ""}`,
             quantity: item.quantity,
             unit_price: item.unitPrice,
             currency_id: "ARS",

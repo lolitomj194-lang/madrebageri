@@ -1,104 +1,158 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { formatPrice } from "@/lib/format";
 
-type Row = {
+type ProductRow = {
   id: string;
   name: string;
-  slug: string;
-  basePrice: number;
-  active: boolean;
+  price: number;
+  cashPrice: number | null;
+  wholesalePrice: number | null;
+  wholesaleMinQty: number | null;
   featured: boolean;
-  collection: string | null;
+  active: boolean;
   category: { name: string };
   images: { url: string }[];
-  variants: { stock: number }[];
+  variants: {
+    id: string;
+    name: string;
+    stock: number;
+    active: boolean;
+    imageUrl: string | null;
+  }[];
 };
 
-export function AdminProductsTable({ products }: { products: Row[] }) {
+export function AdminProductsTable({ products }: { products: ProductRow[] }) {
   const router = useRouter();
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [busyVariant, setBusyVariant] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Eliminar "${name}"? Esta accion no se puede deshacer.`)) return;
-    setDeletingId(id);
-    const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
-    setDeletingId(null);
-    if (res.ok) {
+  async function setVariantStock(variantId: string, stock: number) {
+    setBusyVariant(variantId);
+    try {
+      await fetch(`/api/admin/variants/${variantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stock }),
+      });
       router.refresh();
-    } else {
-      alert("No se pudo eliminar el producto");
+    } finally {
+      setBusyVariant(null);
     }
   }
 
+  async function handleDelete(product: ProductRow) {
+    if (!confirm(`¿Eliminar "${product.name}"? Esta acción no se puede deshacer.`)) return;
+    setDeleting(product.id);
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        alert(data?.error ?? "No se pudo eliminar");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  if (products.length === 0) {
+    return (
+      <p className="rounded-2xl border border-brand-line bg-white p-8 text-center text-sm text-brand-ink-soft">
+        Todavía no hay productos.{" "}
+        <Link href="/admin/productos/nuevo" className="text-brand-terracotta underline">
+          Creá el primero
+        </Link>
+        .
+      </p>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto rounded-2xl border border-brand-line bg-white">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-brand-line text-left text-xs uppercase tracking-wide text-brand-ink/50">
-            <th className="px-4 py-3">Producto</th>
-            <th className="px-4 py-3">Categoria</th>
-            <th className="px-4 py-3">Precio</th>
-            <th className="px-4 py-3">Stock total</th>
-            <th className="px-4 py-3">Estado</th>
-            <th className="px-4 py-3" />
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((p) => {
-            const stock = p.variants.reduce((s, v) => s + v.stock, 0);
-            return (
-              <tr key={p.id} className="border-b border-brand-line last:border-0">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="relative h-10 w-12 shrink-0 overflow-hidden rounded bg-brand-cream">
-                      {p.images[0] && (
-                        <Image src={p.images[0].url} alt={p.name} fill className="object-cover" sizes="48px" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-brand-ink line-clamp-1">{p.name}</p>
-                      {p.collection && <p className="text-xs text-brand-ink/50">{p.collection}</p>}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-brand-ink/70">{p.category.name}</td>
-                <td className="px-4 py-3">{formatPrice(p.basePrice)}</td>
-                <td className="px-4 py-3">
-                  <span className={stock === 0 ? "text-brand-ferrari font-medium" : ""}>{stock}</span>
-                </td>
-                <td className="px-4 py-3">
+    <div className="space-y-4">
+      {products.map((product) => (
+        <div key={product.id} className="rounded-2xl border border-brand-line bg-white p-4">
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-brand-cream">
+              {(product.images[0]?.url || product.variants.find((v) => v.imageUrl)?.imageUrl) && (
+                <Image
+                  src={product.images[0]?.url ?? (product.variants.find((v) => v.imageUrl)?.imageUrl as string)}
+                  alt=""
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold text-brand-ink">{product.name}</p>
+                {!product.active && (
+                  <span className="rounded-full bg-brand-sand px-2 py-0.5 text-xs">Oculto</span>
+                )}
+                {product.featured && (
+                  <span className="rounded-full bg-brand-terracotta/10 px-2 py-0.5 text-xs text-brand-terracotta">
+                    Destacado
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-brand-ink-soft">
+                {product.category.name} · {formatPrice(product.price)}
+                {product.cashPrice != null && ` · efectivo ${formatPrice(product.cashPrice)}`}
+                {product.wholesalePrice != null &&
+                  ` · mayorista ${formatPrice(product.wholesalePrice)} (${product.wholesaleMinQty}+)`}
+              </p>
+
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {product.variants.map((variant) => (
                   <span
-                    className={`rounded-full px-2 py-1 text-xs ${
-                      p.active ? "bg-green-100 text-green-700" : "bg-zinc-200 text-zinc-600"
+                    key={variant.id}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+                      variant.stock === 0 || !variant.active
+                        ? "border-brand-line bg-brand-cream text-brand-ink-soft line-through"
+                        : "border-brand-line bg-white text-brand-ink"
                     }`}
                   >
-                    {p.active ? "Activo" : "Inactivo"}
+                    {variant.name} · {variant.stock}u
+                    {variant.stock > 0 && variant.active && (
+                      <button
+                        onClick={() => setVariantStock(variant.id, 0)}
+                        disabled={busyVariant === variant.id}
+                        title="Marcar agotada"
+                        className="font-bold text-brand-terracotta hover:text-brand-terracotta-dark disabled:opacity-40"
+                      >
+                        agotar
+                      </button>
+                    )}
                   </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-3">
-                    <Link href={`/admin/productos/${p.id}`} className="text-brand-gold hover:underline">
-                      Editar
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(p.id, p.name)}
-                      disabled={deletingId === p.id}
-                      className="text-brand-ferrari hover:underline disabled:opacity-50"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex shrink-0 gap-2">
+              <Link
+                href={`/admin/productos/${product.id}`}
+                className="rounded-full border border-brand-line px-4 py-1.5 text-sm hover:border-brand-terracotta"
+              >
+                Editar
+              </Link>
+              <button
+                onClick={() => handleDelete(product)}
+                disabled={deleting === product.id}
+                className="rounded-full border border-red-200 px-4 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                {deleting === product.id ? "..." : "Eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,136 +1,151 @@
 import Link from "next/link";
-import Image from "next/image";
-import { getFeaturedProducts, getFerrariProducts, getCategories } from "@/lib/products";
+import { getCategories, getFeaturedProducts } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { Reveal } from "@/components/Reveal";
+import { site, instagramLink, whatsappLink } from "@/lib/site";
 
-export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  const [featured, ferrari, categories] = await Promise.all([
-    getFeaturedProducts(),
-    getFerrariProducts(),
+export default async function HomePage() {
+  const [categories, featured] = await Promise.all([
     getCategories(),
+    getFeaturedProducts(),
   ]);
 
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-brand-ink text-brand-cream">
-        <div className="absolute inset-0 opacity-25">
-          <Image
-            src="https://placehold.co/1600x900/0b0b0c/c9a227?text=Ray-Ban+x+Scuderia+Ferrari"
-            alt="Ray-Ban x Scuderia Ferrari"
-            fill
-            priority
-            className="object-cover"
-          />
-        </div>
-        <div className="relative mx-auto max-w-7xl px-4 py-28 sm:px-6 lg:px-8 lg:py-40">
+      <section className="border-b border-brand-line bg-brand-cream">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-16 sm:py-24">
           <Reveal>
-            <p className="text-xs uppercase tracking-[0.4em] text-brand-gold-light">
-              Distribuidor autorizado Ray-Ban · Parana
+            <p className="rounded-full border border-brand-terracotta/40 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-terracotta">
+              Hecho a mano · Envíos a todo el país
             </p>
-            <h1 className="mt-6 max-w-2xl font-serif text-4xl leading-tight sm:text-5xl lg:text-6xl">
-              La coleccion <span className="text-brand-gold">Scuderia Ferrari</span> llego a Parana
+          </Reveal>
+          <Reveal delay={80}>
+            <h1 className="max-w-2xl font-serif text-4xl leading-tight text-brand-ink sm:text-6xl">
+              Telas que cambian, piezas únicas para tu casa
             </h1>
-            <p className="mt-6 max-w-xl text-brand-cream/80">
-              Anteojos de sol Ray-Ban 100% originales. Retira en zona Hipodromo o
-              recibi tu pedido en cualquier punto del pais.
+          </Reveal>
+          <Reveal delay={160}>
+            <p className="max-w-xl text-lg text-brand-ink-soft">
+              Almohadones, blanquería, carteras y materos confeccionados
+              artesanalmente. El stock de telas va rotando: lo que ves hoy,
+              mañana puede no estar.
             </p>
-            <div className="mt-10 flex flex-wrap gap-4">
-              <Link
-                href="/catalogo?coleccion=Ferrari"
-                className="rounded-full bg-brand-ferrari px-8 py-3 text-sm uppercase tracking-wide text-white transition-transform hover:scale-105"
-              >
-                Ver coleccion Ferrari
-              </Link>
-              <Link
-                href="/catalogo"
-                className="rounded-full border border-brand-gold px-8 py-3 text-sm uppercase tracking-wide text-brand-gold transition-colors hover:bg-brand-gold hover:text-brand-ink"
-              >
-                Ver todo el catalogo
-              </Link>
-            </div>
+          </Reveal>
+          <Reveal delay={240} className="flex flex-wrap gap-3">
+            <Link href="/catalogo" className="btn-primary">
+              Ver catálogo
+            </Link>
+            <Link href="/mayorista" className="btn-secondary">
+              Comprar por mayor
+            </Link>
           </Reveal>
         </div>
       </section>
 
-      {/* Categories strip */}
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <Reveal>
-          <h2 className="font-serif text-2xl text-brand-ink">Buscar por forma</h2>
-        </Reveal>
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {categories.map((cat, i) => (
-            <Reveal key={cat.id} delay={i * 0.05}>
+      {/* Categorias */}
+      {categories.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 py-12">
+          <h2 className="mb-6 font-serif text-2xl text-brand-ink">Categorías</h2>
+          <div className="flex flex-wrap gap-3">
+            {categories.map((cat) => (
               <Link
+                key={cat.id}
                 href={`/catalogo?categoria=${cat.slug}`}
-                className="group flex flex-col items-center gap-3 rounded-xl border border-brand-line bg-white px-4 py-6 text-center transition-all hover:-translate-y-1 hover:border-brand-gold hover:shadow-lg"
+                className="rounded-full border border-brand-line bg-white px-5 py-2.5 text-sm font-medium text-brand-ink transition-colors hover:border-brand-terracotta hover:text-brand-terracotta"
               >
-                <span className="text-sm font-medium text-brand-ink group-hover:text-brand-gold">
-                  {cat.name}
-                </span>
+                {cat.name}
               </Link>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      {/* Ferrari collection */}
-      {ferrari.length > 0 && (
-        <section className="bg-brand-ink py-16 text-brand-cream">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <Reveal>
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-brand-ferrari">Edicion especial</p>
-                  <h2 className="mt-2 font-serif text-3xl">Coleccion Scuderia Ferrari</h2>
-                </div>
-                <Link href="/catalogo?coleccion=Ferrari" className="hidden text-sm uppercase tracking-wide text-brand-gold hover:underline sm:block">
-                  Ver todo
-                </Link>
-              </div>
-            </Reveal>
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {ferrari.slice(0, 4).map((p, i) => (
-                <Reveal key={p.id} delay={i * 0.07}>
-                  <ProductCard product={p} />
-                </Reveal>
-              ))}
-            </div>
+            ))}
           </div>
         </section>
       )}
 
-      {/* Featured */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <Reveal>
-          <h2 className="font-serif text-3xl text-brand-ink">Destacados</h2>
-        </Reveal>
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featured.map((p, i) => (
-            <Reveal key={p.id} delay={i * 0.06}>
-              <ProductCard product={p} />
-            </Reveal>
+      {/* Destacados */}
+      {featured.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 pb-12">
+          <div className="mb-6 flex items-end justify-between">
+            <h2 className="font-serif text-2xl text-brand-ink">Destacados</h2>
+            <Link href="/catalogo" className="text-sm font-medium text-brand-terracotta hover:underline">
+              Ver todo →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {featured.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Como funciona */}
+      <section className="border-y border-brand-line bg-white">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:grid-cols-3">
+          {[
+            {
+              title: "1 · Elegí modelo y tela",
+              text: "Cada producto muestra las telas disponibles hoy, con foto real. ¿Querés otra? Consultanos por WhatsApp.",
+            },
+            {
+              title: "2 · Pagá como prefieras",
+              text: "Mercado Pago (tarjeta o cuotas), transferencia o efectivo. Con transferencia hay descuento.",
+            },
+            {
+              title: "3 · Lo recibís donde estés",
+              text: "Enviamos a todo el país por correo. El costo se coordina por WhatsApp según destino y tamaño del paquete.",
+            },
+          ].map((step) => (
+            <div key={step.title} className="space-y-2">
+              <h3 className="font-serif text-lg text-brand-terracotta">{step.title}</h3>
+              <p className="text-sm leading-relaxed text-brand-ink-soft">{step.text}</p>
+            </div>
           ))}
         </div>
       </section>
 
-      {/* Trust strip */}
-      <section className="border-t border-brand-line bg-brand-cream py-12">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 text-center sm:grid-cols-3 sm:px-6 lg:px-8">
-          <div>
-            <p className="font-serif text-lg text-brand-ink">100% Originales</p>
-            <p className="mt-1 text-sm text-brand-ink/60">Distribuidor autorizado Ray-Ban</p>
+      {/* Mayorista */}
+      <section className="mx-auto max-w-6xl px-4 py-14">
+        <div className="flex flex-col items-start gap-5 rounded-3xl bg-brand-sage/15 p-8 sm:flex-row sm:items-center sm:justify-between sm:p-10">
+          <div className="max-w-xl space-y-2">
+            <h2 className="font-serif text-2xl text-brand-ink">
+              ¿Tenés un local o revendés?
+            </h2>
+            <p className="text-sm leading-relaxed text-brand-ink-soft">
+              Comprá por mayor con precios especiales por cantidad, combinando
+              telas del mismo producto. Ideal para tiendas de deco, regalerías y
+              revendedoras de todo el país.
+            </p>
           </div>
-          <div>
-            <p className="font-serif text-lg text-brand-ink">Envios a todo el pais</p>
-            <p className="mt-1 text-sm text-brand-ink/60">Coordinamos el envio con vos</p>
-          </div>
-          <div>
-            <p className="font-serif text-lg text-brand-ink">Retiro en Parana</p>
-            <p className="mt-1 text-sm text-brand-ink/60">Zona Hipodromo</p>
+          <Link href="/mayorista" className="btn-primary shrink-0">
+            Conocer precios mayoristas
+          </Link>
+        </div>
+      </section>
+
+      {/* Instagram */}
+      <section className="border-t border-brand-line bg-brand-cream">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-14 text-center">
+          <h2 className="font-serif text-2xl text-brand-ink">
+            Las telas nuevas se muestran primero en Instagram
+          </h2>
+          <p className="max-w-lg text-sm text-brand-ink-soft">
+            Seguinos en @{site.instagram} para ver los ingresos de tela apenas
+            llegan, o escribinos directo por WhatsApp.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <a href={instagramLink()} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+              Ir a Instagram
+            </a>
+            <a
+              href={whatsappLink(`Hola ${site.name}! Quiero ver las telas disponibles.`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary"
+            >
+              Escribir por WhatsApp
+            </a>
           </div>
         </div>
       </section>

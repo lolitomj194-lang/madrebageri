@@ -1,4 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
+
+const productInclude = {
+  images: { orderBy: { order: "asc" as const } },
+  variants: { orderBy: { order: "asc" as const } },
+  category: true,
+};
+
+export type ProductWithRelations = Prisma.ProductGetPayload<{
+  include: typeof productInclude;
+}>;
 
 export async function getCategories() {
   return prisma.category.findMany({ orderBy: { order: "asc" } });
@@ -7,71 +18,69 @@ export async function getCategories() {
 export async function getFeaturedProducts() {
   return prisma.product.findMany({
     where: { active: true, featured: true },
-    include: { images: { orderBy: { order: "asc" } }, variants: true, category: true },
+    include: productInclude,
     orderBy: { createdAt: "desc" },
     take: 8,
   });
 }
 
-export async function getFerrariProducts() {
-  return prisma.product.findMany({
-    where: { active: true, collection: "Ferrari" },
-    include: { images: { orderBy: { order: "asc" } }, variants: true, category: true },
-    orderBy: { createdAt: "desc" },
-  });
-}
-
 export type CatalogFilters = {
   categorySlug?: string;
-  collection?: string;
   search?: string;
   sort?: "relevancia" | "precio-asc" | "precio-desc" | "nuevo";
 };
 
 export async function getCatalog(filters: CatalogFilters) {
-  const where: Record<string, unknown> = { active: true };
+  const where: Prisma.ProductWhereInput = { active: true };
 
   if (filters.categorySlug) {
     where.category = { slug: filters.categorySlug };
-  }
-  if (filters.collection) {
-    where.collection = filters.collection;
   }
   if (filters.search) {
     where.name = { contains: filters.search, mode: "insensitive" };
   }
 
-  const orderBy =
+  const orderBy: Prisma.ProductOrderByWithRelationInput =
     filters.sort === "precio-asc"
-      ? { basePrice: "asc" as const }
+      ? { price: "asc" }
       : filters.sort === "precio-desc"
-        ? { basePrice: "desc" as const }
+        ? { price: "desc" }
         : filters.sort === "nuevo"
-          ? { createdAt: "desc" as const }
-          : { featured: "desc" as const };
+          ? { createdAt: "desc" }
+          : { featured: "desc" };
 
-  return prisma.product.findMany({
-    where,
-    include: { images: { orderBy: { order: "asc" } }, variants: true, category: true },
-    orderBy,
-  });
+  return prisma.product.findMany({ where, include: productInclude, orderBy });
 }
 
 export async function getProductBySlug(slug: string) {
   return prisma.product.findUnique({
     where: { slug },
-    include: {
-      images: { orderBy: { order: "asc" } },
-      variants: true,
-      category: true,
-    },
+    include: productInclude,
   });
 }
 
 export async function getRelatedProducts(categoryId: string, excludeId: string) {
   return prisma.product.findMany({
     where: { categoryId, active: true, id: { not: excludeId } },
-    include: { images: { orderBy: { order: "asc" } }, variants: true, category: true },
+    include: productInclude,
     take: 4,
   });
+}
+
+// Stock total disponible de un producto entre sus telas activas.
+export function availableStock(product: { variants: { stock: number; active: boolean }[] }) {
+  return product.variants
+    .filter((v) => v.active)
+    .reduce((sum, v) => sum + v.stock, 0);
+}
+
+export function firstImage(product: {
+  images: { url: string }[];
+  variants: { imageUrl: string | null; active: boolean }[];
+}) {
+  return (
+    product.images[0]?.url ??
+    product.variants.find((v) => v.active && v.imageUrl)?.imageUrl ??
+    "/placeholder-product.svg"
+  );
 }
