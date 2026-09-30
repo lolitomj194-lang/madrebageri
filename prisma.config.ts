@@ -13,6 +13,9 @@ export default defineConfig({
   // DB has a pooler, point DATABASE_URL at the pooler and DIRECT_URL at the
   // direct connection; with a single connection string, DATABASE_URL alone works.
   datasource: {
-    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
+    url:
+      process.env["DIRECT_URL"] ??
+      process.env["DATABASE_URL_UNPOOLED"] ?? // conexion directa que crea Neon en Vercel
+      process.env["DATABASE_URL"],
   },
 });
