@@ -14,7 +14,7 @@ const PREFS: { value: BudgetPreference; label: string; text: string }[] = [
 
 type Zone = { id: string; name: string; fee: number };
 
-export function BudgetTool() {
+export function BudgetTool({ levelsEnabled = false }: { levelsEnabled?: boolean }) {
   const [budget, setBudget] = useState("60000");
   const [persons, setPersons] = useState(6);
   const [preference, setPreference] = useState<BudgetPreference>("equilibrado");
@@ -77,6 +77,7 @@ export function BudgetTool() {
           <QuantityStepper value={persons} onChange={setPersons} min={1} max={200} label="Personas" />
         </div>
 
+        {levelsEnabled && (
         <fieldset>
           <legend className="label">Preferencia</legend>
           <div className="grid grid-cols-3 gap-2">
@@ -89,6 +90,7 @@ export function BudgetTool() {
             ))}
           </div>
         </fieldset>
+        )}
 
         <label className="flex items-center gap-3 rounded-xl border border-brand-line px-4 py-3 text-sm">
           <input type="checkbox" checked={includeAccessories} onChange={(e) => setIncludeAccessories(e.target.checked)} className="h-4 w-4 accent-brand-ember" />

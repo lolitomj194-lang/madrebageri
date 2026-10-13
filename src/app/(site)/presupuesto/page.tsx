@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import { BudgetTool } from "@/components/BudgetTool";
 import { Reveal } from "@/components/Reveal";
+import { getCalculatorSettings } from "@/lib/settings";
+
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Armá tu asado según tu presupuesto",
   description: "Decinos cuánto querés gastar y para cuántas personas: te proponemos la mejor combinación de cortes con los precios actuales.",
 };
 
-export default function BudgetPage() {
+export default async function BudgetPage() {
+  const settings = await getCalculatorSettings();
   return (
     <div>
       <section className="bg-grill text-brand-cream">
@@ -22,7 +26,7 @@ export default function BudgetPage() {
         </div>
       </section>
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <BudgetTool />
+        <BudgetTool levelsEnabled={settings.levelsEnabled} />
       </div>
     </div>
   );

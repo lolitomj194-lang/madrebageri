@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { QuantityStepper } from "@/components/QuantityStepper";
 import { PlanEditor } from "@/components/PlanEditor";
+import Link from "next/link";
 import { formatGrams } from "@/lib/pricing";
+import { formatPrice } from "@/lib/format";
 import type { Plan, Appetite, Level } from "@/lib/calculator";
 
 const APPETITES: { value: Appetite; label: string; text: string }[] = [
@@ -17,7 +19,7 @@ const LEVELS: { value: Level; label: string; text: string }[] = [
   { value: "premium", label: "Premium", text: "Entraña, bife, ojo de bife" },
 ];
 
-export function CalculatorTool() {
+export function CalculatorTool({ levelsEnabled = false }: { levelsEnabled?: boolean }) {
   const [persons, setPersons] = useState(6);
   const [children, setChildren] = useState(0);
   const [appetite, setAppetite] = useState<Appetite>("normal");
@@ -74,6 +76,7 @@ export function CalculatorTool() {
           </div>
         </fieldset>
 
+        {levelsEnabled && (
         <fieldset>
           <legend className="label">¿Qué tipo de asado?</legend>
           <div className="grid grid-cols-3 gap-2">
@@ -86,6 +89,7 @@ export function CalculatorTool() {
             ))}
           </div>
         </fieldset>
+        )}
 
         <div className="space-y-2">
           <label className="flex items-center gap-3 rounded-xl border border-brand-line px-4 py-3 text-sm">
@@ -126,6 +130,16 @@ export function CalculatorTool() {
                 </ul>
               )}
             </div>
+            {plan.reference && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-line bg-white px-5 py-4 text-sm">
+                <p>
+                  Referencia: el <strong>{plan.reference.label}</strong> para {plan.reference.persons} personas sale{" "}
+                  <strong>{formatPrice(plan.reference.price)}</strong> con aprox. {formatGrams(plan.reference.grams)} de carne.
+                  {plan.reference.applied ? " Ajustamos la recomendación para que no quede por debajo." : ""}
+                </p>
+                <Link href="/combos" className="btn btn-outline btn-sm">Ver el combo</Link>
+              </div>
+            )}
             <PlanEditor
               lines={plan.lines.filter((l) => !l.optional)}
               extraLines={plan.lines.filter((l) => l.optional)}

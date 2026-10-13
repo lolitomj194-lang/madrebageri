@@ -346,6 +346,8 @@ model CalculatorSettings {
   minGramsPerPerson Int @default(300)
   /// Incluir pan/provoleta u otros extras sugeridos automaticamente.
   suggestExtras Boolean @default(true)
+  /// Mostrar la eleccion de nivel (economico / clasico / premium). Apagado = solo cortes clasicos.
+  levelsEnabled Boolean @default(false)
   updatedAt DateTime @updatedAt
 }
 

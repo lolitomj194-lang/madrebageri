@@ -241,5 +241,6 @@ export function parseCalculatorSettings(body: Record<string, unknown>) {
     cutsOver10: Math.round(f(body.cutsOver10, 4, 1, 8)),
     minGramsPerPerson: Math.round(f(body.minGramsPerPerson, 300, 100, 1000)),
     suggestExtras: bool(body.suggestExtras, true),
+    levelsEnabled: bool(body.levelsEnabled, false),
   };
 }

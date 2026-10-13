@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
   }
   const budget = Math.max(0, Math.floor(Number(body.budget) || 0));
   const persons = Math.min(200, Math.max(1, Math.floor(Number(body.persons) || 1)));
-  const preference = PREFS.includes(body.preference as BudgetPreference) ? (body.preference as BudgetPreference) : "equilibrado";
   if (budget <= 0) return NextResponse.json({ error: "Ingresá un presupuesto válido." }, { status: 400 });
 
   let deliveryFee = 0;
@@ -28,6 +27,7 @@ export async function POST(req: NextRequest) {
     getCalculatorSettings(),
     prisma.product.findMany({ where: { active: true, recommendable: true }, include: { category: true }, orderBy: [{ order: "asc" }] }),
   ]);
+  const preference = settings.levelsEnabled && PREFS.includes(body.preference as BudgetPreference) ? (body.preference as BudgetPreference) : "equilibrado";
   const result = buildBudgetPlan(products.map(toClientProduct), settings, {
     budget,
     persons,

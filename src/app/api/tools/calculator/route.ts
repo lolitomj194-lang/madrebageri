@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCalculatorSettings } from "@/lib/settings";
 import { toClientProduct } from "@/lib/catalog";
 import { buildPlan, type Appetite, type Level } from "@/lib/calculator";
+import { getComboFloor } from "@/lib/combo-floor";
 
 const APPETITES: Appetite[] = ["poco", "normal", "abundante"];
 const LEVELS: Level[] = ["economico", "clasico", "premium"];
@@ -17,12 +18,12 @@ export async function POST(req: NextRequest) {
   const persons = Math.min(200, Math.max(1, Math.floor(Number(body.persons) || 1)));
   const children = Math.min(persons, Math.max(0, Math.floor(Number(body.children) || 0)));
   const appetite = APPETITES.includes(body.appetite as Appetite) ? (body.appetite as Appetite) : "normal";
-  const level = LEVELS.includes(body.level as Level) ? (body.level as Level) : "clasico";
-
-  const [settings, products] = await Promise.all([
+  const [settings, products, floor] = await Promise.all([
     getCalculatorSettings(),
     prisma.product.findMany({ where: { active: true, recommendable: true }, include: { category: true }, orderBy: [{ order: "asc" }] }),
+    getComboFloor(persons),
   ]);
+  const level = settings.levelsEnabled && LEVELS.includes(body.level as Level) ? (body.level as Level) : "clasico";
   const plan = buildPlan(products.map(toClientProduct), settings, {
     persons,
     children,
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
     level,
     includeAchuras: Boolean(body.includeAchuras),
     includeEmbutidos: Boolean(body.includeEmbutidos),
+    floor: floor ?? undefined,
   });
-  return NextResponse.json({ plan, params: { gramsPerAdult: settings.gramsPerAdult } });
+  return NextResponse.json({ plan, params: { gramsPerAdult: settings.gramsPerAdult, levelsEnabled: settings.levelsEnabled } });
 }

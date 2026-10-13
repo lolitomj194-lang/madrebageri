@@ -31,6 +31,22 @@ export type CalculatorInput = {
   includeEmbutidos: boolean;
   /** Override de gramos por adulto (usado por el armado por presupuesto). */
   gramsPerAdultOverride?: number;
+  /**
+   * Piso de referencia: el combo armado para esa cantidad de personas. Con apetito normal o
+   * abundante, la recomendacion nunca queda por debajo de su precio ni de su cantidad de carne.
+   */
+  floor?: ComboFloor;
+};
+
+export type ComboFloor = {
+  /** Nombre del combo de referencia ("Combo Clásico 4 personas"). */
+  label: string;
+  /** Precio del combo para la cantidad de personas pedida. */
+  price: number;
+  /** Gramos de carne aproximados del combo para esa cantidad de personas. */
+  grams: number;
+  /** Personas para las que se calculo el combo. */
+  persons: number;
 };
 
 export type PlanLine = {
@@ -53,6 +69,8 @@ export type Plan = {
   eaters: number;
   estimated: boolean;
   notes: string[];
+  /** Combo de referencia usado como piso y si hubo que subir la recomendacion para alcanzarlo. */
+  reference: (ComboFloor & { applied: boolean; addedPortions: number }) | null;
 };
 
 const LEVEL_LABEL: Record<Level, string> = { economico: "económico", clasico: "clásico", premium: "premium" };
@@ -162,6 +180,40 @@ export function buildPlan(products: ClientProduct[], params: CalculatorParams, i
     }
   }
 
+  const isMeat = (l: PlanLine) => ["CARNE", "ACHURA", "EMBUTIDO"].includes(l.product.role) && !l.optional;
+  const meatAvgGrams = () => lines.filter(isMeat).reduce((s, l) => s + ((l.estWeightMinG ?? 0) + (l.estWeightMaxG ?? 0)) / 2, 0);
+  const priceOf = () => lines.filter((l) => !l.optional).reduce((s, l) => s + l.lineTotal, 0);
+
+  // 5) Piso del combo: con apetito normal/abundante no se recomienda menos carne ni menos precio
+  //    que el combo armado para esa cantidad de personas. Se suman porciones de los cortes
+  //    principales (en ronda) hasta igualarlo o superarlo.
+  let reference: Plan["reference"] = null;
+  if (input.floor && input.appetite !== "poco") {
+    const floor = input.floor;
+    let added = 0;
+    const mains = lines.filter((l) => l.product.role === "CARNE" && !l.optional);
+    const targets = mains.length ? mains : lines.filter(isMeat);
+    let i = 0;
+    while (targets.length && (meatAvgGrams() < floor.grams || priceOf() < floor.price) && added < 60) {
+      const line = targets[i % targets.length];
+      const next = makeLine(line.product, line.quantity + 1, line.targetGrams, line.reason, line.optional);
+      const idx = lines.indexOf(line);
+      lines[idx] = next;
+      targets[i % targets.length] = next;
+      added += 1;
+      i += 1;
+    }
+    if (added > 0) {
+      for (const l of lines) {
+        if (targets.includes(l)) l.reason = `${l.reason.split(" · ")[0]} · ajustado al piso del ${floor.label}`;
+      }
+      notes.push(
+        `Se sumaron ${added} porción${added > 1 ? "es" : ""} para que la recomendación no quede por debajo del ${floor.label} (${floor.persons} personas).`
+      );
+    }
+    reference = { ...floor, applied: added > 0, addedPortions: added };
+  }
+
   const meatLines = lines.filter((l) => ["CARNE", "ACHURA", "EMBUTIDO"].includes(l.product.role));
   const totalMeatGramsMin = meatLines.reduce((s, l) => s + (l.estWeightMinG ?? 0), 0);
   const totalMeatGramsMax = meatLines.reduce((s, l) => s + (l.estWeightMaxG ?? 0), 0);
@@ -178,6 +230,7 @@ export function buildPlan(products: ClientProduct[], params: CalculatorParams, i
     eaters,
     estimated: lines.some((l) => l.product.estimated),
     notes,
+    reference,
   };
 }
 

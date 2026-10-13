@@ -71,7 +71,7 @@ export function CalculatorSettingsForm({ settings }: { settings: CalculatorSetti
     gramsPerAdult: String(settings.gramsPerAdult), childFactor: String(settings.childFactor), lightFactor: String(settings.lightFactor), heavyFactor: String(settings.heavyFactor),
     achuraSharePercent: String(settings.achuraSharePercent), embutidoDiscountGrams: String(settings.embutidoDiscountGrams),
     cutsUpTo4: String(settings.cutsUpTo4), cutsUpTo10: String(settings.cutsUpTo10), cutsOver10: String(settings.cutsOver10),
-    minGramsPerPerson: String(settings.minGramsPerPerson), suggestExtras: settings.suggestExtras,
+    minGramsPerPerson: String(settings.minGramsPerPerson), suggestExtras: settings.suggestExtras, levelsEnabled: settings.levelsEnabled,
   });
   const { save, saving, msg } = useSave("/api/admin/calculator");
   const set = (k: keyof typeof v, val: string) => setV((s) => ({ ...s, [k]: val }));
@@ -91,6 +91,7 @@ export function CalculatorSettingsForm({ settings }: { settings: CalculatorSetti
         <Field label="Cortes distintos hasta 10 personas"><input className="input-field" type="number" value={v.cutsUpTo10} onChange={(e) => set("cutsUpTo10", e.target.value)} /></Field>
         <Field label="Cortes distintos más de 10 personas"><input className="input-field" type="number" value={v.cutsOver10} onChange={(e) => set("cutsOver10", e.target.value)} /></Field>
         <Field label="Mínimo aceptable por persona (g)" hint="Por debajo, el presupuesto se marca como insuficiente."><input className="input-field" type="number" value={v.minGramsPerPerson} onChange={(e) => set("minGramsPerPerson", e.target.value)} /></Field>
+        <div className="sm:col-span-2"><Toggle label="Permitir elegir nivel (económico / clásico / premium)" hint="Apagado: la calculadora y el presupuesto usan solo cortes clásicos y no muestran esa opción. Encendelo cuando haya cortes de distintos niveles." checked={v.levelsEnabled} onChange={(b) => setV((s) => ({ ...s, levelsEnabled: b }))} /></div>
         <div className="sm:col-span-2"><Toggle label="Sugerir extras (provoleta, etc.)" hint="Productos con rol EXTRA y cantidad sugerida por persona." checked={v.suggestExtras} onChange={(b) => setV((s) => ({ ...s, suggestExtras: b }))} /></div>
       </div>
       {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}

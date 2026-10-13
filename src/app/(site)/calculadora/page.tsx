@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import { CalculatorTool } from "@/components/CalculatorTool";
 import { Reveal } from "@/components/Reveal";
+import { getCalculatorSettings } from "@/lib/settings";
+
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Calculadora de asado · ¿Cuánta carne por persona?",
   description: "Calculá cuántas porciones de cada corte necesitás según cantidad de personas, niños y apetito. Agregá todo al carrito y pedí por WhatsApp.",
 };
 
-export default function CalculatorPage() {
+export default async function CalculatorPage() {
+  const settings = await getCalculatorSettings();
   return (
     <div>
       <section className="bg-grill text-brand-cream">
@@ -22,7 +26,7 @@ export default function CalculatorPage() {
         </div>
       </section>
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <CalculatorTool />
+        <CalculatorTool levelsEnabled={settings.levelsEnabled} />
       </div>
     </div>
   );
