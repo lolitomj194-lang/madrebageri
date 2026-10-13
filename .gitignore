@@ -45,5 +45,6 @@ next-env.d.ts
 # herramientas locales / skills auto-instaladas por la CLI de Vercel
 .agents/
 .claude/settings.local.json
+.claude/skills/
 skills-lock.json
 .vercelignore.bak
