@@ -36,6 +36,7 @@ Panel: `http://localhost:3000/admin/login` con `ADMIN_EMAIL` / `ADMIN_PASSWORD` 
 | `DIRECT_URL` | Sí | Conexión directa usada por `prisma migrate`. En local puede ser igual a `DATABASE_URL`. |
 | `JWT_SECRET` | Sí (prod) | Secreto largo y aleatorio para firmar la sesión del panel. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Solo para el seed | Credenciales iniciales del administrador. |
+| `SETUP_TOKEN` | Solo en el primer deploy | Habilita `/api/setup?token=...` para cargar datos iniciales sin terminal. |
 | `NEXT_PUBLIC_BASE_URL` | Sí (prod) | URL pública del sitio (ej. `https://entrecortes.com.ar`). Se usa en SEO y en el enlace de seguimiento del mensaje de WhatsApp. |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | No | Habilitan el botón “Subir foto” en el panel. Sin esto, las imágenes se cargan pegando una URL. |
 
@@ -107,15 +108,24 @@ El seed es idempotente (upsert): se puede volver a correr sin duplicar datos.
 LISTO_PARA_RETIRAR / EN_REPARTO → ENTREGADO` (o `CANCELADO`). Abrir WhatsApp **no** confirma nada: la
 solicitud queda como *Solicitud recibida* hasta que el negocio la actualiza desde el panel.
 
-## Deploy en Vercel
+## Deploy en Vercel (sin usar la terminal)
 
-1. Crear un Postgres administrado y obtener `DATABASE_URL` (pooler) y `DIRECT_URL` (directa).
-2. Cargar todas las variables de entorno en el proyecto de Vercel (`NEXT_PUBLIC_BASE_URL` con el dominio final).
-3. Conectar el repo. El build de Vercel usa `npm run vercel-build` (`prisma migrate deploy && next build`),
-   así que las migraciones se aplican solas en cada deploy.
-4. Correr el seed una vez contra la base de producción (`npm run seed` con el `.env` apuntando a prod) o
-   crear el admin y el catálogo desde cero.
-5. Configurar el dominio en Vercel y actualizar `NEXT_PUBLIC_BASE_URL`.
+1. En [vercel.com/new](https://vercel.com/new) importar el repositorio de GitHub.
+2. En **Settings → Git → Production Branch** poner la rama que contiene ENTRE CORTES
+   (`claude/wonderful-hopper-43a62s`, o `main` si se la mergeó).
+3. En **Storage → Create Database → Neon (Postgres)** crear la base y conectarla al proyecto: Vercel
+   inyecta `DATABASE_URL` y `DATABASE_URL_UNPOOLED` automáticamente (la app los reconoce).
+4. En **Settings → Environment Variables** agregar: `JWT_SECRET` (texto largo aleatorio), `ADMIN_EMAIL`,
+   `ADMIN_PASSWORD`, `SETUP_TOKEN` (otro texto aleatorio) y `NEXT_PUBLIC_BASE_URL` (la URL del proyecto,
+   por ejemplo `https://entre-cortes.vercel.app`).
+5. **Deploy**. El build corre `prisma migrate deploy && next build`, así que las tablas se crean solas.
+6. Abrir una sola vez `https://<tu-dominio>/api/setup?token=<SETUP_TOKEN>` para cargar los datos de
+   ejemplo y el usuario administrador. Después entrar en `/admin/login` y reemplazar los datos de ejemplo
+   por los reales (WhatsApp, precios, fotos, zonas, horarios).
+7. Opcional: configurar el dominio propio en **Settings → Domains** y actualizar `NEXT_PUBLIC_BASE_URL`.
+
+El endpoint `/api/setup` solo funciona si todavía no existe ningún administrador y requiere el token, así
+que no puede volver a ejecutarse por error.
 
 > Si ya existía una base de datos del proyecto anterior en esa misma instancia, hay que vaciarla o usar una
 > base nueva: el esquema de ENTRE CORTES parte de una migración inicial nueva.
