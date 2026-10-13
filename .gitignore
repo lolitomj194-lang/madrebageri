@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# herramientas locales / skills auto-instaladas por la CLI de Vercel
+.agents/
+.claude/settings.local.json
+skills-lock.json
+.vercelignore.bak
