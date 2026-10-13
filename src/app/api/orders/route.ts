@@ -1,133 +1,259 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getPreferenceClient } from "@/lib/mercadopago";
-import type { CreateOrderRequest } from "@/lib/order-types";
+import { getBusinessSettings } from "@/lib/settings";
+import { getDeliveryOptions, computeDeliveryFee } from "@/lib/delivery";
+import { checkCoupon } from "@/lib/coupons";
+import { normalizeArPhone, whatsappLink } from "@/lib/whatsapp";
+import { unitPrice, isEstimated, estimatedWeight, lineDetail, pluralUnit } from "@/lib/pricing";
+import { comboPrice } from "@/lib/catalog";
+import { buildWhatsappMessage } from "@/lib/order-message";
+import type { DeliveryMethod } from "@/generated/prisma/enums";
+
+type IncomingItem = { kind: "product" | "combo"; id: string; quantity: number };
+
+type Body = {
+  clientRequestId?: string;
+  customerName?: string;
+  phone?: string;
+  deliveryMethod?: DeliveryMethod;
+  address?: string;
+  neighborhood?: string;
+  reference?: string;
+  mapsLink?: string;
+  zoneId?: string;
+  requestedDate?: string;
+  timeSlot?: string;
+  notes?: string;
+  couponCode?: string;
+  items?: IncomingItem[];
+};
+
+const METHODS: DeliveryMethod[] = ["EXPRESS", "PROGRAMADO", "RETIRO"];
+
+function bad(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status });
+}
+
+function clean(value: unknown, max = 300) {
+  return String(value ?? "").trim().slice(0, max) || null;
+}
 
 export async function POST(req: NextRequest) {
-  let body: CreateOrderRequest;
+  let body: Body;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "JSON invalido" }, { status: 400 });
+    return bad("JSON inválido");
   }
 
-  if (!body.customerName?.trim() || !body.phone?.trim()) {
-    return NextResponse.json({ error: "Nombre y telefono son obligatorios" }, { status: 400 });
+  const settings = await getBusinessSettings();
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? req.nextUrl.origin;
+
+  // Idempotencia: si el navegador reintenta con la misma clave, devolvemos el mismo pedido.
+  const clientRequestId = clean(body.clientRequestId, 80);
+  if (clientRequestId) {
+    const existing = await prisma.order.findUnique({ where: { clientRequestId } });
+    if (existing) {
+      return NextResponse.json({
+        duplicate: true,
+        orderNumber: existing.number,
+        token: existing.publicToken,
+        whatsappUrl: settings.whatsapp && existing.whatsappMessage ? whatsappLink(settings.whatsapp, existing.whatsappMessage) : null,
+        redirectUrl: `/pedido/${existing.publicToken}?nuevo=1`,
+      });
+    }
   }
-  if (!body.items?.length) {
-    return NextResponse.json({ error: "El carrito esta vacio" }, { status: 400 });
+
+  // --- Validaciones basicas ---
+  const customerName = clean(body.customerName, 120);
+  if (!customerName || customerName.length < 3) return bad("Ingresá tu nombre y apellido.");
+  const phone = normalizeArPhone(String(body.phone ?? ""));
+  if (!phone) return bad("Ingresá un número de WhatsApp argentino válido (ej: 343 5123456).");
+  const deliveryMethod = body.deliveryMethod;
+  if (!deliveryMethod || !METHODS.includes(deliveryMethod)) return bad("Elegí una modalidad de entrega.");
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (items.length === 0) return bad("El carrito está vacío.");
+  if (items.length > 60) return bad("Demasiados productos en un solo pedido.");
+
+  const options = await getDeliveryOptions();
+
+  // --- Modalidad de entrega ---
+  const address = clean(body.address, 200);
+  const neighborhood = clean(body.neighborhood, 120);
+  const reference = clean(body.reference, 300);
+  const mapsLinkRaw = clean(body.mapsLink, 300);
+  const mapsLink = mapsLinkRaw && /^https?:\/\//i.test(mapsLinkRaw) ? mapsLinkRaw : null;
+  const requestedDate = clean(body.requestedDate, 10);
+  const timeSlot = clean(body.timeSlot, 20);
+  let zone: (typeof options.zones)[number] | null = null;
+
+  if (deliveryMethod === "EXPRESS") {
+    if (!options.expressEnabled) return bad("El delivery express no está disponible.");
+    if (!options.openNow) return bad("El delivery express solo está disponible dentro del horario de atención. Podés programar la entrega.");
   }
-  if (body.shippingMethod === "ENVIO" && (!body.address?.trim() || !body.city?.trim())) {
-    return NextResponse.json({ error: "Direccion y ciudad son obligatorias para envio" }, { status: 400 });
+  if (deliveryMethod === "PROGRAMADO" && !options.scheduled) return bad("El delivery programado no está disponible.");
+  if (deliveryMethod === "RETIRO" && !options.pickup) return bad("El retiro por local no está disponible.");
+
+  if (deliveryMethod !== "RETIRO") {
+    if (!address) return bad("Ingresá la dirección de entrega (calle y número).");
+    zone = options.zones.find((z) => z.id === body.zoneId) ?? null;
+    if (!zone) return bad("Elegí tu zona de reparto. Si tu barrio no aparece, consultanos por WhatsApp.");
   }
+
+  if (deliveryMethod !== "EXPRESS") {
+    const date = options.dates.find((d) => d.date === requestedDate);
+    if (!date) return bad("Elegí un día disponible.");
+    const slot = date.slots.find((s) => s.slot === timeSlot);
+    if (!slot) return bad("Elegí una franja horaria disponible.");
+    if (deliveryMethod === "PROGRAMADO" && slot.full) return bad("Esa franja ya no tiene cupo. Elegí otra.");
+  }
+
+  // --- Recalcular precios en el servidor (nunca se confia en el navegador) ---
+  const productIds = items.filter((i) => i.kind === "product").map((i) => i.id);
+  const comboIds = items.filter((i) => i.kind === "combo").map((i) => i.id);
+  const [products, combos] = await Promise.all([
+    prisma.product.findMany({ where: { id: { in: productIds }, active: true } }),
+    prisma.combo.findMany({ where: { id: { in: comboIds }, active: true }, include: { items: { include: { product: true } } } }),
+  ]);
+
+  const itemsData: {
+    productId?: string;
+    comboId?: string;
+    name: string;
+    detail: string | null;
+    quantity: number;
+    unitLabel: string;
+    unitPrice: number;
+    lineTotal: number;
+    estimated: boolean;
+    estWeightMinG: number | null;
+    estWeightMaxG: number | null;
+  }[] = [];
+
+  for (const item of items) {
+    const quantity = Math.floor(Number(item.quantity));
+    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 500) return bad("Cantidad inválida.");
+    if (item.kind === "product") {
+      const p = products.find((x) => x.id === item.id);
+      if (!p) return bad("Uno de los productos ya no está disponible. Revisá tu carrito.");
+      if (quantity < p.minQuantity) return bad(`${p.name}: la cantidad mínima es ${p.minQuantity}.`);
+      const price = unitPrice(p);
+      const w = estimatedWeight(p, quantity);
+      itemsData.push({
+        productId: p.id,
+        name: p.name,
+        detail: lineDetail(p, quantity),
+        quantity,
+        unitLabel: p.unitLabel,
+        unitPrice: price,
+        lineTotal: price * quantity,
+        estimated: isEstimated(p),
+        estWeightMinG: w?.minG ?? null,
+        estWeightMaxG: w?.maxG ?? null,
+      });
+    } else {
+      const c = combos.find((x) => x.id === item.id);
+      if (!c) return bad("Uno de los combos ya no está disponible. Revisá tu carrito.");
+      const perPerson = c.pricing === "PER_PERSON";
+      if (perPerson && quantity < c.persons) return bad(`${c.name}: mínimo ${c.persons} personas.`);
+      if (perPerson && c.maxPersons && quantity > c.maxPersons) return bad(`${c.name}: máximo ${c.maxPersons} personas.`);
+      const mult = perPerson ? quantity : 1;
+      const included = c.items
+        .map((it) => {
+          const q = it.quantity * mult;
+          return `${Number.isInteger(q) ? q : q.toFixed(1)} ${pluralUnit(it.product.unitLabel, q)} de ${it.product.name}`;
+        })
+        .join(", ");
+      const total = perPerson ? comboPrice(c, quantity) : c.price * quantity;
+      itemsData.push({
+        comboId: c.id,
+        name: c.name,
+        detail: perPerson ? `${quantity} personas (${included})` : `${quantity} combo${quantity > 1 ? "s" : ""} (${included})`,
+        quantity,
+        unitLabel: perPerson ? "persona" : "combo",
+        unitPrice: c.price,
+        lineTotal: total,
+        estimated: false,
+        estWeightMinG: null,
+        estWeightMaxG: null,
+      });
+    }
+  }
+
+  const subtotal = itemsData.reduce((s, i) => s + i.lineTotal, 0);
+
+  // --- Cupon (uno solo, nunca se acumulan) ---
+  let discount = 0;
+  let couponId: string | null = null;
+  let couponCode: string | null = null;
+  const code = clean(body.couponCode, 40)?.toUpperCase() ?? null;
+  if (code) {
+    const coupon = await prisma.coupon.findUnique({ where: { code } });
+    const check = checkCoupon(coupon, subtotal);
+    if (!check.ok) return bad(`Cupón ${code}: ${check.reason}`);
+    discount = check.discount;
+    couponId = coupon!.id;
+    couponCode = coupon!.code;
+  }
+
+  const goodsTotal = subtotal - discount;
+  let deliveryFee = 0;
+  if (zone) {
+    if (goodsTotal < zone.minOrder) {
+      return bad(`La compra mínima para ${zone.name} es de $${zone.minOrder.toLocaleString("es-AR")}.`);
+    }
+    deliveryFee = computeDeliveryFee(zone, goodsTotal);
+  }
+  const total = goodsTotal + deliveryFee;
 
   try {
     const order = await prisma.$transaction(async (tx) => {
-      let total = 0;
-      const itemsData: {
-        productId: string;
-        variantId: string;
-        productName: string;
-        variantLabel: string;
-        quantity: number;
-        unitPrice: number;
-      }[] = [];
-
-      for (const item of body.items) {
-        const variant = await tx.productVariant.findUnique({
-          where: { id: item.variantId },
-          include: { product: true },
+      if (couponId) {
+        const updated = await tx.coupon.updateMany({
+          where: { id: couponId, OR: [{ maxUses: null }, { usedCount: { lt: tx.coupon.fields.maxUses } }] },
+          data: { usedCount: { increment: 1 } },
         });
-        if (!variant || variant.productId !== item.productId) {
-          throw new Error(`Variante no encontrada`);
-        }
-        if (variant.stock < item.quantity) {
-          throw new Error(`Sin stock suficiente de ${variant.product.name} (${variant.colorName})`);
-        }
-
-        const isCashPayment = body.paymentMethod === "TRANSFERENCIA" || body.paymentMethod === "EFECTIVO";
-        const baseForPayment = isCashPayment
-          ? variant.product.cashPrice ?? variant.product.basePrice
-          : variant.product.basePrice;
-        const unitPrice = baseForPayment + variant.priceDelta;
-        total += unitPrice * item.quantity;
-        itemsData.push({
-          productId: variant.productId,
-          variantId: variant.id,
-          productName: variant.product.name,
-          variantLabel: `${variant.colorName}${variant.lensColor ? ` · ${variant.lensColor}` : ""}`,
-          quantity: item.quantity,
-          unitPrice,
-        });
-
-        const updated = await tx.productVariant.updateMany({
-          where: { id: variant.id, stock: { gte: item.quantity } },
-          data: { stock: { decrement: item.quantity } },
-        });
-        if (updated.count === 0) {
-          throw new Error(`Sin stock suficiente de ${variant.product.name} (${variant.colorName})`);
-        }
+        if (updated.count === 0) throw new Error("El cupón alcanzó el máximo de usos.");
       }
-
-      return tx.order.create({
+      const created = await tx.order.create({
         data: {
-          customerName: body.customerName.trim(),
-          phone: body.phone.trim(),
-          email: body.email?.trim() || null,
-          address: body.address?.trim() || null,
-          city: body.city?.trim() || null,
-          province: body.province?.trim() || null,
-          shippingMethod: body.shippingMethod,
-          paymentMethod: body.paymentMethod,
-          notes: body.notes?.trim() || null,
+          clientRequestId,
+          customerName,
+          phone,
+          deliveryMethod,
+          address: deliveryMethod === "RETIRO" ? null : address,
+          neighborhood: deliveryMethod === "RETIRO" ? null : neighborhood,
+          reference: deliveryMethod === "RETIRO" ? null : reference,
+          mapsLink: deliveryMethod === "RETIRO" ? null : mapsLink,
+          zoneId: zone?.id ?? null,
+          requestedDate: deliveryMethod === "EXPRESS" ? null : requestedDate,
+          timeSlot: deliveryMethod === "EXPRESS" ? null : timeSlot,
+          notes: clean(body.notes, 500),
+          subtotal,
+          deliveryFee,
+          discount,
+          couponId,
+          couponCode,
           total,
+          status: "SOLICITADA",
           items: { create: itemsData },
         },
         include: { items: true },
       });
+      const trackingUrl = `${baseUrl}/pedido/${created.publicToken}`;
+      const message = buildWhatsappMessage({ ...created, zoneName: zone?.name ?? null }, settings.name, trackingUrl);
+      return tx.order.update({ where: { id: created.id }, data: { whatsappMessage: message } });
     });
 
-    if (body.paymentMethod === "MERCADOPAGO") {
-      const preferenceClient = getPreferenceClient();
-      if (!preferenceClient) {
-        return NextResponse.json(
-          { error: "Mercado Pago no esta configurado todavia. Elegi otro medio de pago." },
-          { status: 503 }
-        );
-      }
-
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-      const preference = await preferenceClient.create({
-        body: {
-          items: order.items.map((item) => ({
-            id: item.id,
-            title: `${item.productName} - ${item.variantLabel}`,
-            quantity: item.quantity,
-            unit_price: item.unitPrice,
-            currency_id: "ARS",
-          })),
-          external_reference: order.id,
-          back_urls: {
-            success: `${baseUrl}/pedido-confirmado/${order.id}`,
-            pending: `${baseUrl}/pedido-confirmado/${order.id}`,
-            failure: `${baseUrl}/checkout`,
-          },
-          auto_return: "approved",
-          notification_url: `${baseUrl}/api/mercadopago/webhook`,
-        },
-      });
-
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { mpPreferenceId: preference.id },
-      });
-
-      return NextResponse.json({ orderId: order.id, redirectUrl: preference.init_point });
-    }
-
-    return NextResponse.json({ orderId: order.id, redirectUrl: `/pedido-confirmado/${order.id}` });
+    return NextResponse.json({
+      orderNumber: order.number,
+      token: order.publicToken,
+      whatsappUrl: settings.whatsapp && order.whatsappMessage ? whatsappLink(settings.whatsapp, order.whatsappMessage) : null,
+      whatsappConfigured: Boolean(settings.whatsapp),
+      redirectUrl: `/pedido/${order.publicToken}?nuevo=1`,
+    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "No se pudo crear el pedido";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const message = err instanceof Error ? err.message : "No se pudo registrar la solicitud";
+    return bad(message);
   }
 }

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2e2a27"/>
+      <stop offset="100%" stop-color="#171717"/>
+    </radialGradient>
+    <linearGradient id="grill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity=".45"/>
+    </linearGradient>
+    <pattern id="lines" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="none"/>
+      <path d="M0 20h40" stroke="#ffffff" stroke-opacity=".035" stroke-width="10"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <rect width="800" height="600" fill="url(#lines)"/>
+  <g transform="translate(400 265) scale(1.9)"><path d="M-80 20c0-45 35-75 80-75s80 30 80 75c0 20-35 30-80 30s-80-10-80-30z" fill="#b9372c"/><path d="M-50 10c10-30 40-45 70-35 15 5 15 25 0 30-25 10-50 15-70 5z" fill="#f3dccb" opacity=".7"/><circle cx="20" cy="-10" r="6" fill="#fff" opacity=".5"/></g>
+  <rect width="800" height="600" fill="url(#grill)"/>
+  <rect x="40" y="40" width="720" height="520" rx="18" fill="none" stroke="#B83227" stroke-opacity=".55" stroke-width="3"/>
+  <text x="400" y="505" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="46" fill="#F8F5EF" letter-spacing="2">Bife de chorizo</text>
+  <text x="400" y="545" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#F8F5EF" fill-opacity=".55" letter-spacing="4">IMAGEN ILUSTRATIVA</text>
+</svg>

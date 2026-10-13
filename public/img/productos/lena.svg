@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2e2a27"/>
+      <stop offset="100%" stop-color="#171717"/>
+    </radialGradient>
+    <linearGradient id="grill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity=".45"/>
+    </linearGradient>
+    <pattern id="lines" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="none"/>
+      <path d="M0 20h40" stroke="#ffffff" stroke-opacity=".035" stroke-width="10"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <rect width="800" height="600" fill="url(#lines)"/>
+  <g transform="translate(400 265) scale(1.9)"><path d="M0-70c20 30 45 40 45 80 0 25-20 45-45 45s-45-20-45-45c0-20 10-30 20-45 0 15 5 25 15 30-5-25 0-45 10-65z" fill="#e0582f"/><path d="M0-15c10 15 18 22 18 38 0 12-8 20-18 20s-18-8-18-20c0-10 5-15 10-22 0 8 2 12 6 15-2-12 0-20 2-31z" fill="#f6b852"/></g>
+  <rect width="800" height="600" fill="url(#grill)"/>
+  <rect x="40" y="40" width="720" height="520" rx="18" fill="none" stroke="#B83227" stroke-opacity=".55" stroke-width="3"/>
+  <text x="400" y="505" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="46" fill="#F8F5EF" letter-spacing="2">Leña</text>
+  <text x="400" y="545" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#F8F5EF" fill-opacity=".55" letter-spacing="4">IMAGEN ILUSTRATIVA</text>
+</svg>

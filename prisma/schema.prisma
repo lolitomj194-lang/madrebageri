@@ -1,4 +1,4 @@
-// Prisma schema for Vision Equis - Ray-Ban ecommerce (Parana, Argentina)
+// Prisma schema for ENTRE CORTES - asado delivery (Parana, Entre Rios, Argentina)
 
 generator client {
   provider = "prisma-client"
@@ -9,117 +9,332 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Como se vende el producto.
+/// PORTION: por porcion estimada en gramos (cortes de carne).
+/// UNIT: por unidad (chorizo, morcilla, provoleta).
+/// PACKAGE: por paquete/bolsa (carbon, lena, sal).
+enum SaleUnit {
+  PORTION
+  UNIT
+  PACKAGE
+}
+
+/// Como se calcula el precio de una porcion.
+/// PER_KG: precio por kg x peso de referencia (estimado, se confirma al pesar).
+/// FIXED: precio comercial fijo por porcion/unidad/paquete.
+enum PriceMode {
+  PER_KG
+  FIXED
+}
+
+/// Nivel de un producto para la calculadora y el armado por presupuesto.
+enum Tier {
+  ECONOMICO
+  CLASICO
+  PREMIUM
+}
+
+/// Rol del producto dentro de un asado (para las herramientas inteligentes).
+enum AsadoRole {
+  CARNE
+  ACHURA
+  EMBUTIDO
+  EXTRA
+  ACCESORIO
+  FUEGO
+}
+
+enum ComboPricing {
+  FIXED
+  PER_PERSON
+}
+
 enum OrderStatus {
-  PENDING
-  PAID
-  PREPARING
-  SHIPPED
-  DELIVERED
-  CANCELLED
+  SOLICITADA
+  PENDIENTE_CONTACTO
+  PENDIENTE_CONFIRMACION
+  CONFIRMADO
+  EN_PREPARACION
+  LISTO_PARA_RETIRAR
+  EN_REPARTO
+  ENTREGADO
+  CANCELADO
 }
 
-enum PaymentMethod {
-  MERCADOPAGO
-  TRANSFERENCIA
-  EFECTIVO
+enum DeliveryMethod {
+  EXPRESS
+  PROGRAMADO
+  RETIRO
 }
 
-enum ShippingMethod {
-  ENVIO
-  RETIRO_LOCAL
+enum CouponType {
+  PERCENT
+  FIXED
 }
 
 model Category {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  slug      String    @unique
-  order     Int       @default(0)
-  products  Product[]
-  createdAt DateTime  @default(now())
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  order       Int       @default(0)
+  role        AsadoRole @default(CARNE)
+  products    Product[]
+  createdAt   DateTime  @default(now())
 }
 
 model Product {
-  id          String           @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
-  slug        String           @unique
+  slug        String    @unique
   description String?
-  collection  String?
-  basePrice   Int
-  cashPrice   Int?
-  featured    Boolean          @default(false)
-  active      Boolean          @default(true)
+  imageUrl    String?
   categoryId  String
-  category    Category         @relation(fields: [categoryId], references: [id])
-  images      ProductImage[]
-  variants    ProductVariant[]
-  orderItems  OrderItem[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  category    Category  @relation(fields: [categoryId], references: [id])
+  role        AsadoRole @default(CARNE)
+  tier        Tier      @default(CLASICO)
+
+  saleUnit  SaleUnit  @default(PORTION)
+  priceMode PriceMode @default(PER_KG)
+  /// Precio por kilogramo en pesos (sin centavos). Obligatorio con priceMode PER_KG.
+  pricePerKg Int?
+  /// Precio comercial por porcion/unidad/paquete. Obligatorio con priceMode FIXED.
+  fixedPrice Int?
+  /// Rango estimado de una porcion individual, en gramos (solo PORTION).
+  portionMinGrams Int?
+  portionMaxGrams Int?
+  /// Peso de referencia usado para calcular el precio estimado de una porcion.
+  portionRefGrams Int?
+  /// Peso aproximado de una unidad (chorizo, morcilla) para calculos de la calculadora.
+  unitGrams Int?
+  /// Etiqueta de la unidad de venta ("porcion", "unidad", "bolsa 4 kg").
+  unitLabel String @default("porción")
+
+  /// Cantidad sugerida por persona para la calculadora (ej: chorizo 1, morcilla 0.5).
+  suggestedPerPerson Float?
+
+  minQuantity Int     @default(1)
+  featured    Boolean @default(false)
+  active      Boolean @default(true)
+  /// Si se recomienda en la calculadora automatica.
+  recommendable Boolean @default(true)
+  order         Int     @default(0)
+
+  comboItems ComboItem[]
+  orderItems OrderItem[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   @@index([categoryId])
-  @@index([collection])
+  @@index([active, featured])
 }
 
-model ProductImage {
+model Combo {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  description String?
+  imageUrl    String?
+  pricing     ComboPricing @default(FIXED)
+  /// Precio del combo (FIXED) o precio por persona (PER_PERSON).
+  price       Int
+  /// Precio anterior/tachado opcional para mostrar promocion.
+  compareAtPrice Int?
+  /// Comensales estimados (FIXED) o minimo de personas (PER_PERSON).
+  persons    Int  @default(4)
+  maxPersons Int?
+  badge      String?
+  featured   Boolean @default(false)
+  active     Boolean @default(true)
+  order      Int     @default(0)
+  items      ComboItem[]
+  orderItems OrderItem[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model ComboItem {
   id        String  @id @default(cuid())
+  comboId   String
+  combo     Combo   @relation(fields: [comboId], references: [id], onDelete: Cascade)
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url       String
-  order     Int     @default(0)
+  /// Cantidad de porciones/unidades. En combos PER_PERSON es la cantidad por persona.
+  quantity Float
+  note     String?
+  order    Int     @default(0)
 
-  @@index([productId])
+  @@index([comboId])
 }
 
-model ProductVariant {
-  id         String      @id @default(cuid())
-  productId  String
-  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  colorName  String
-  colorHex   String
-  lensColor  String?
-  sku        String      @unique
-  priceDelta Int         @default(0)
-  stock      Int         @default(0)
-  imageUrl   String?
-  orderItems OrderItem[]
+model DeliveryZone {
+  id              String   @id @default(cuid())
+  name            String
+  /// Barrios cubiertos, separados por coma (informativo y para busqueda).
+  neighborhoods   String?
+  fee             Int      @default(0)
+  minOrder        Int      @default(0)
+  freeShippingFrom Int?
+  active          Boolean  @default(true)
+  order           Int      @default(0)
+  orders          Order[]
+  createdAt       DateTime @default(now())
+}
 
-  @@index([productId])
+/// Horario de atencion por dia de la semana (0 = domingo ... 6 = sabado).
+model OpeningHour {
+  id        String  @id @default(cuid())
+  dayOfWeek Int     @unique
+  open      Boolean @default(false)
+  openTime  String  @default("18:00")
+  closeTime String  @default("23:00")
+  /// Duracion de cada franja de entrega/retiro en minutos.
+  slotMinutes Int @default(60)
+  /// Cupo maximo de pedidos programados por franja.
+  slotCapacity Int @default(6)
+}
+
+/// Cierres excepcionales o feriados (fecha en formato YYYY-MM-DD).
+model ClosedDate {
+  id     String @id @default(cuid())
+  date   String @unique
+  reason String?
+}
+
+model Coupon {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  description String?
+  type        CouponType
+  value       Int
+  minTotal    Int        @default(0)
+  validFrom   DateTime?
+  validTo     DateTime?
+  maxUses     Int?
+  usedCount   Int        @default(0)
+  active      Boolean    @default(true)
+  orders      Order[]
+  createdAt   DateTime   @default(now())
 }
 
 model Order {
-  id             String         @id @default(cuid())
-  customerName   String
-  phone          String
-  email          String?
-  address        String?
-  city           String?
-  province       String?
-  shippingMethod ShippingMethod
-  paymentMethod  PaymentMethod
-  status         OrderStatus    @default(PENDING)
-  total          Int
-  notes          String?
-  mpPaymentId    String?
-  mpPreferenceId String?
-  items          OrderItem[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id        String @id @default(cuid())
+  /// Numero correlativo; se muestra como EC-000123.
+  number    Int    @unique @default(autoincrement())
+  /// Token aleatorio para el enlace de seguimiento publico.
+  publicToken String @unique @default(cuid())
+  /// Clave generada por el navegador para evitar solicitudes duplicadas.
+  clientRequestId String? @unique
+
+  customerName String
+  phone        String
+  deliveryMethod DeliveryMethod
+  address      String?
+  neighborhood String?
+  reference    String?
+  mapsLink     String?
+  zoneId       String?
+  zone         DeliveryZone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  requestedDate String?
+  timeSlot      String?
+  notes         String?
+
+  subtotal    Int
+  deliveryFee Int @default(0)
+  discount    Int @default(0)
+  couponId    String?
+  coupon      Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponCode  String?
+  /// Total estimado al momento de la solicitud.
+  total       Int
+  /// Precio final confirmado por el negocio (cargado desde el panel).
+  finalTotal  Int?
+  /// Marcado por el negocio cuando el cobro fue efectivamente recibido.
+  paidAt      DateTime?
+  /// Mensaje de WhatsApp generado (para reabrir el chat).
+  whatsappMessage String?
+
+  status       OrderStatus @default(SOLICITADA)
+  adminNotes   String?
+  items        OrderItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([status])
+  @@index([phone])
+  @@index([createdAt])
 }
 
 model OrderItem {
-  id           String          @id @default(cuid())
-  orderId      String
-  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId    String?
-  product      Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
-  variantId    String?
-  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  productName  String
-  variantLabel String?
-  quantity     Int
-  unitPrice    Int
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  comboId   String?
+  combo     Combo?   @relation(fields: [comboId], references: [id], onDelete: SetNull)
+  name      String
+  /// Detalle legible: "4 porciones (aprox. 1,8 a 2,4 kg)".
+  detail    String?
+  quantity  Int
+  unitLabel String
+  unitPrice Int
+  lineTotal Int
+  estimated Boolean @default(false)
+  estWeightMinG Int?
+  estWeightMaxG Int?
 
   @@index([orderId])
+}
+
+/// Configuracion comercial (una sola fila, id = "main").
+model BusinessSettings {
+  id        String @id @default("main")
+  name      String @default("ENTRE CORTES")
+  slogan    String @default("Vos pone el fuego. Nosotros, el asado.")
+  slogan2   String @default("Del corte a tu parrilla, sin vueltas.")
+  whatsapp  String @default("")
+  address   String @default("")
+  city      String @default("Parana, Entre Rios")
+  instagram String?
+  facebook  String?
+  logoUrl   String?
+  heroImageUrl String?
+  expressEnabled    Boolean @default(true)
+  scheduledEnabled  Boolean @default(true)
+  pickupEnabled     Boolean @default(true)
+  /// Objetivo de entrega express en minutos (informativo, no garantizado).
+  expressTargetMinutes Int @default(60)
+  prepTimeMinutes      Int @default(30)
+  /// Dias de anticipacion maxima para pedidos programados.
+  scheduleDaysAhead Int @default(7)
+  /// Mensaje que acompana a los precios estimados.
+  estimateNotice String @default("Los precios de cortes son estimados segun el peso de referencia. El importe final se confirma por WhatsApp al pesar el pedido.")
+  policies       String?
+  updatedAt      DateTime @updatedAt
+}
+
+/// Parametros de la calculadora de asados (una sola fila, id = "main").
+model CalculatorSettings {
+  id String @id @default("main")
+  /// Gramos de carne (sin hueso) por adulto con apetito normal.
+  gramsPerAdult Int @default(450)
+  childFactor   Float @default(0.5)
+  lightFactor   Float @default(0.8)
+  heavyFactor   Float @default(1.25)
+  /// Porcentaje (0-100) del total que se destina a achuras si se incluyen.
+  achuraSharePercent Int @default(15)
+  /// Gramos que descuenta cada unidad de embutido del total de carne.
+  embutidoDiscountGrams Int @default(80)
+  /// Cantidad de cortes principales distintos segun personas.
+  cutsUpTo4   Int @default(2)
+  cutsUpTo10  Int @default(3)
+  cutsOver10  Int @default(4)
+  /// Minimo aceptable de gramos por persona (para advertir presupuesto insuficiente).
+  minGramsPerPerson Int @default(300)
+  /// Incluir pan/provoleta u otros extras sugeridos automaticamente.
+  suggestExtras Boolean @default(true)
+  updatedAt DateTime @updatedAt
 }
 
 model AdminUser {

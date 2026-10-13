@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2e2a27"/>
+      <stop offset="100%" stop-color="#171717"/>
+    </radialGradient>
+    <linearGradient id="grill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity=".45"/>
+    </linearGradient>
+    <pattern id="lines" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="none"/>
+      <path d="M0 20h40" stroke="#ffffff" stroke-opacity=".035" stroke-width="10"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <rect width="800" height="600" fill="url(#lines)"/>
+  <g transform="translate(400 265) scale(1.9)"><path d="M-70 10c-10-40 30-70 70-60 35 8 80 0 85 40 4 35-30 55-70 55-35 0-78-5-85-35z" fill="#c2473a"/><path d="M-40 0c10-25 55-30 80-15 12 7 12 25-5 30-25 8-55 10-75-15z" fill="#f1d7c4" opacity=".75"/><path d="M-62 15c-3-25 18-40 35-35" stroke="#fff" stroke-width="5" fill="none" opacity=".4" stroke-linecap="round"/></g>
+  <rect width="800" height="600" fill="url(#grill)"/>
+  <rect x="40" y="40" width="720" height="520" rx="18" fill="none" stroke="#B83227" stroke-opacity=".55" stroke-width="3"/>
+  <text x="400" y="505" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="46" fill="#F8F5EF" letter-spacing="2">Tira de asado</text>
+  <text x="400" y="545" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#F8F5EF" fill-opacity=".55" letter-spacing="4">IMAGEN ILUSTRATIVA</text>
+</svg>

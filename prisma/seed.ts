@@ -7,9 +7,10 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 runSeed(prisma)
-  .then(({ productCount, adminEmail }) => {
-    const adminPassword = process.env.ADMIN_PASSWORD ?? "cambiar123";
-    console.log(`Seed complete. ${productCount} products. Admin login: ${adminEmail} / ${adminPassword}`);
+  .then(({ productCount, comboCount, adminEmail }) => {
+    console.log(`Seed completo: ${productCount} productos y ${comboCount} combos DE EJEMPLO.`);
+    console.log(`Los precios son ilustrativos: cargar los reales desde /admin antes de publicar.`);
+    console.log(`Admin: ${adminEmail} / ${process.env.ADMIN_PASSWORD ?? "cambiar123"}`);
   })
   .catch((e) => {
     console.error(e);

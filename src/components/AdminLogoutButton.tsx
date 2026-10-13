@@ -12,8 +12,8 @@ export function AdminLogoutButton() {
   }
 
   return (
-    <button onClick={handleLogout} className="text-sm text-brand-cream/70 hover:text-brand-gold transition-colors">
-      Cerrar sesion
+    <button onClick={handleLogout} className="text-xs font-semibold uppercase tracking-wider text-brand-cream/60 transition-colors hover:text-brand-cream">
+      Cerrar sesión
     </button>
   );
 }

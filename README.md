@@ -1,105 +1,141 @@
-# Vision Equis - Ecommerce Ray-Ban (Parana)
+# ENTRE CORTES — Asado a domicilio en Paraná
 
-Tienda online para Vision Equis, distribuidor autorizado Ray-Ban en Parana,
-Entre Rios. Next.js (App Router) + Prisma + PostgreSQL, con panel de
-administracion propio para cargar productos, stock y gestionar pedidos.
+> **Vos poné el fuego. Nosotros, el asado.**
+
+Plataforma web comercial para ENTRE CORTES (Paraná, Entre Ríos): catálogo de cortes por **porción**, combos
+prearmados, calculadora de asado, armado por presupuesto, carrito persistente, **solicitud de pedido por
+WhatsApp** (sin pagos en la web), seguimiento de pedidos y panel administrativo completo.
 
 ## Stack
 
-- Next.js 16 (App Router, Turbopack)
-- PostgreSQL + Prisma ORM
-- Tailwind CSS v4
-- Framer Motion (animaciones)
-- Zustand (carrito, persistido en el navegador)
-- Mercado Pago (Checkout Pro)
-- JWT + cookie httpOnly para el login del panel admin
+- **Next.js 16** (App Router, Turbopack, `proxy.ts`) + **TypeScript** + **Tailwind CSS v4** + Framer Motion
+- **PostgreSQL** + **Prisma 7** (adapter `pg`)
+- **Zustand** (carrito persistido en el navegador)
+- Autenticación del panel: JWT en cookie `httpOnly` + bcrypt
+- Despliegue sugerido: **Vercel** + Postgres administrado (Neon, Supabase o Vercel Postgres)
+- Imágenes: URL o subida a **Cloudinary** (opcional)
 
-## Desarrollo local
+## Puesta en marcha local
 
-1. Instalar dependencias (esto tambien genera el cliente de Prisma via `postinstall`):
+```bash
+npm install                       # también genera el cliente de Prisma (postinstall)
+cp .env.example .env              # si no existe, ver la tabla de variables más abajo
+npx prisma migrate dev            # crea las tablas
+npm run seed                      # carga DATOS DE EJEMPLO + usuario admin
+npm run dev                       # http://localhost:3000
+```
 
-   ```bash
-   npm install
-   ```
+Panel: `http://localhost:3000/admin/login` con `ADMIN_EMAIL` / `ADMIN_PASSWORD` del `.env`
+(por defecto `admin@entrecortes.local` / `cambiar123`). **Cambiá la contraseña desde Configuración.**
 
-2. Crear una base de datos Postgres local y copiar `.env.example`... (no hay
-   `.env.example` en el repo por seguridad; ver la seccion de variables de
-   entorno mas abajo) a `.env` con tus datos.
+### Variables de entorno
 
-3. Correr las migraciones y cargar datos de ejemplo:
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `DATABASE_URL` | Sí | Conexión a PostgreSQL usada por la app (puede ser un pooler). |
+| `DIRECT_URL` | Sí | Conexión directa usada por `prisma migrate`. En local puede ser igual a `DATABASE_URL`. |
+| `JWT_SECRET` | Sí (prod) | Secreto largo y aleatorio para firmar la sesión del panel. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Solo para el seed | Credenciales iniciales del administrador. |
+| `NEXT_PUBLIC_BASE_URL` | Sí (prod) | URL pública del sitio (ej. `https://entrecortes.com.ar`). Se usa en SEO y en el enlace de seguimiento del mensaje de WhatsApp. |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | No | Habilitan el botón “Subir foto” en el panel. Sin esto, las imágenes se cargan pegando una URL. |
 
-   ```bash
-   npx prisma migrate dev
-   npm run seed
-   ```
+Ejemplo de `.env` local:
 
-   El seed crea ~12 productos de ejemplo (incluyendo la linea Ferrari) y un
-   usuario admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD` del `.env`).
-
-4. Levantar el servidor:
-
-   ```bash
-   npm run dev
-   ```
-
-## Variables de entorno
-
-| Variable | Descripcion |
-|---|---|
-| `DATABASE_URL` | Cadena de conexion a PostgreSQL |
-| `JWT_SECRET` | Secreto para firmar la sesion del panel admin (cambiar en produccion) |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Credenciales que crea el script de seed |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | Numero de WhatsApp en formato internacional sin `+` (ej `5493435173734`) |
-| `NEXT_PUBLIC_INSTAGRAM` | Usuario de Instagram (sin `@`) |
-| `MERCADOPAGO_ACCESS_TOKEN` | Access token de Mercado Pago (produccion o sandbox) |
-| `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` | Public key de Mercado Pago |
-| `NEXT_PUBLIC_BASE_URL` | URL publica del sitio (usada en los `back_urls` y webhook de Mercado Pago) |
-
-Mientras `MERCADOPAGO_ACCESS_TOKEN` este vacio, el checkout con Mercado Pago
-devuelve un error controlado y el cliente puede elegir transferencia o
-efectivo en su lugar.
-
-## Panel de administracion
-
-`/admin/login` - permite:
-
-- Ver resumen de ventas, pedidos pendientes y stock bajo
-- Crear, editar y eliminar productos (precio tarjeta/Mercado Pago, precio
-  efectivo/transferencia opcional, categoria, coleccion, imagenes por URL,
-  variantes de color con stock y ajuste de precio)
-- Ver pedidos y cambiar su estado (pendiente, pagado, preparando,
-  enviado, entregado, cancelado). Al cancelar un pedido se repone el stock
-  reservado automaticamente.
-
-Las imagenes de producto se cargan pegando una URL (por ejemplo subida a
-Cloudinary, Imgur o similar) - no hay upload de archivos integrado todavia.
-
-### Precio tarjeta vs. efectivo/transferencia
-
-Cada producto tiene un precio base (el que se muestra por defecto, pensado
-para Mercado Pago/tarjeta) y un precio opcional para efectivo/transferencia.
-Si se deja vacio el precio efectivo, se cobra el mismo precio base. El total
-del carrito se recalcula automaticamente en el checkout segun el medio de
-pago elegido, y el precio final se recalcula tambien en el servidor al crear
-el pedido (nunca se confia en el precio que manda el navegador).
-
-## Deploy en Vercel
-
-1. Crear una base de datos Postgres administrada (Neon, Supabase o Vercel
-   Postgres) y usar su `DATABASE_URL` en las variables de entorno del
-   proyecto en Vercel.
-2. Configurar todas las variables de entorno de la tabla de arriba en Vercel.
-3. Correr `npx prisma migrate deploy` contra esa base (una vez, desde tu
-   maquina o un job de CI) y `npm run seed` si queres cargar los datos de
-   ejemplo iniciales.
-4. Conectar el repo en Vercel y deployar. El build corre `prisma generate`
-   automaticamente via `postinstall`.
-5. Cargar el catalogo real (los ~100 productos Ray-Ban) desde el panel
-   `/admin/productos` reemplazando los datos de ejemplo.
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/entrecortes"
+DIRECT_URL="postgresql://postgres:postgres@localhost:5432/entrecortes"
+JWT_SECRET="cambiar-por-un-secreto-largo"
+ADMIN_EMAIL="admin@entrecortes.local"
+ADMIN_PASSWORD="cambiar123"
+NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+```
 
 ## Datos de ejemplo (seed)
 
-`prisma/seed.ts` contiene un catalogo de PLACEHOLDER (nombres de modelos
-Ray-Ban reales pero precios e imagenes de ejemplo) para poder probar el
-sitio de punta a punta antes de cargar el catalogo real de ~100 productos
-desde el panel de administracion.
+`prisma/seed.ts` → `src/lib/seed-data.ts` carga **23 productos, 7 combos, 4 zonas, horarios (miércoles a
+domingo), 1 cupón y el usuario admin**. Los **precios, pesos e imágenes son ilustrativos** (las imágenes son
+SVG generados en `public/img/`, marcados como “imagen ilustrativa”). Antes de publicar:
+
+1. Cargar precios reales, pesos de porción y fotos desde `/admin/productos` y `/admin/combos`.
+2. Cargar el **WhatsApp comercial**, dirección y slogans en `/admin/configuracion`.
+3. Revisar zonas/tarifas (`/admin/zonas`), horarios y cupos (`/admin/horarios`) y cupones.
+4. Revisar las reglas de la calculadora en `/admin/configuracion`.
+
+El seed es idempotente (upsert): se puede volver a correr sin duplicar datos.
+
+## Qué hace la plataforma
+
+### Sitio público
+- **Inicio**: hero, cómo funciona, combos destacados, cortes recomendados, promociones, delivery express,
+  horarios y zonas de cobertura. SEO local (metadata, JSON-LD, `sitemap.xml`, `robots.txt`).
+- **Armá tu asado** (`/catalogo`): productos por categoría con selector de **porciones** (no kilos). Cada
+  corte muestra porción individual estimada (mín–máx), precio por porción (calculado desde precio/kg ×
+  peso de referencia, o precio fijo) y peso estimado del subtotal. Los precios por kilo se marcan como
+  **estimados** y se confirman por WhatsApp.
+- **Combos** (`/combos`): combos de precio fijo o **escalables por persona** con detalle de lo incluido.
+- **Calculadora** (`/calculadora`): personas, niños, apetito, nivel, achuras y embutidos → recomendación
+  editable con porciones, peso total estimado y precio. Reglas configurables desde el panel.
+- **Por presupuesto** (`/presupuesto`): presupuesto + personas + preferencia (+ accesorios y envío
+  opcional) → propuesta con precios reales; baja de nivel, quita achuras, ajusta cantidades y, si no llega al
+  mínimo recomendado, **lo advierte y ofrece alternativas** sin presentar una cantidad insuficiente como adecuada.
+- **Todo para el fuego** (`/fuego`) y sugerencia no invasiva en el carrito (“¿Ya tenés todo para prender el fuego?”).
+- **Carrito** persistente (localStorage) con porciones, unidades, cupones y total estimado.
+- **Checkout** (`/checkout`): datos del cliente, modalidad (express / programado / retiro), zona, dirección,
+  día y franja con cupos, observaciones. Al enviar: valida en el servidor, recalcula precios (nunca confía
+  en el navegador), registra la solicitud con número `EC-000123`, genera el mensaje y abre WhatsApp
+  (`wa.me`, compatible con celular y escritorio). Previene duplicados con una clave por intento.
+- **Seguimiento** (`/pedido/<token>`): enlace seguro por pedido con estado, detalle, botón para reabrir
+  WhatsApp, copiar número y **repetir pedido** con precios y disponibilidad actuales.
+
+### Panel administrativo (`/admin`)
+- **Dashboard**: solicitudes del día, pendientes, confirmados, en preparación, en reparto, entregados,
+  ventas confirmadas, cobros recibidos, ticket promedio y productos más solicitados.
+- **Pedidos**: filtros por estado, cambio de estado, precio final confirmado, cobro recibido, notas
+  internas, chat de WhatsApp con el cliente, enlace de seguimiento.
+- **Productos** y **categorías**: unidad de venta, modo de precio (por kg / fijo), rango y referencia de peso
+  por porción, cantidad mínima, nivel, rol en el asado, sugerido por persona, destacado, disponibilidad.
+- **Combos**: productos incluidos con cantidades (totales o por persona), precio, promoción, destacado.
+- **Clientes**: historial agrupado por WhatsApp (sin registro ni contraseña).
+- **Zonas y envíos**: barrios, tarifa, compra mínima, envío gratis desde, habilitar/deshabilitar.
+- **Horarios**: por día, franjas, cupos por franja, cierres excepcionales, modalidades y tiempos.
+- **Cupones**: porcentaje o fijo, vigencia, compra mínima, límite de usos (un solo cupón por pedido).
+- **Configuración**: nombre, slogans, WhatsApp, dirección, redes, logo, imagen de inicio, aviso de precios
+  estimados, políticas, reglas de la calculadora y cambio de contraseña.
+
+### Estados de pedido
+`SOLICITADA → PENDIENTE_CONTACTO → PENDIENTE_CONFIRMACION → CONFIRMADO → EN_PREPARACION →
+LISTO_PARA_RETIRAR / EN_REPARTO → ENTREGADO` (o `CANCELADO`). Abrir WhatsApp **no** confirma nada: la
+solicitud queda como *Solicitud recibida* hasta que el negocio la actualiza desde el panel.
+
+## Deploy en Vercel
+
+1. Crear un Postgres administrado y obtener `DATABASE_URL` (pooler) y `DIRECT_URL` (directa).
+2. Cargar todas las variables de entorno en el proyecto de Vercel (`NEXT_PUBLIC_BASE_URL` con el dominio final).
+3. Conectar el repo. El build de Vercel usa `npm run vercel-build` (`prisma migrate deploy && next build`),
+   así que las migraciones se aplican solas en cada deploy.
+4. Correr el seed una vez contra la base de producción (`npm run seed` con el `.env` apuntando a prod) o
+   crear el admin y el catálogo desde cero.
+5. Configurar el dominio en Vercel y actualizar `NEXT_PUBLIC_BASE_URL`.
+
+> Si ya existía una base de datos del proyecto anterior en esa misma instancia, hay que vaciarla o usar una
+> base nueva: el esquema de ENTRE CORTES parte de una migración inicial nueva.
+
+## Pendiente / fuera del alcance de esta versión
+
+- **Fotografías reales** de cortes, combos e inicio (hoy son ilustraciones SVG de ejemplo).
+- **Datos comerciales reales**: WhatsApp, dirección, precios, pesos, zonas y horarios definitivos.
+- **Subida de archivos** requiere configurar Cloudinary (sin eso, se cargan URLs).
+- Pagos integrados (Mercado Pago, transferencias automáticas): **excluidos a propósito**; todo se acuerda por WhatsApp.
+- Notificaciones automáticas al negocio (correo/Telegram) al recibir una solicitud.
+- Múltiples usuarios administradores con roles.
+- Rate limiting del login en memoria (por instancia); para mayor robustez usar un store compartido.
+
+## Scripts
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Desarrollo |
+| `npm run build` / `npm start` | Producción |
+| `npm run lint` | ESLint |
+| `npm run seed` | Datos de ejemplo + admin |
+| `node scripts/generate-placeholders.mjs` | Regenera las imágenes SVG de ejemplo |

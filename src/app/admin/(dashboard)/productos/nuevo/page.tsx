@@ -1,15 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { ProductForm } from "@/components/admin/ProductForm";
+import { ProductForm, emptyProduct } from "@/components/admin/ProductForm";
+import { AdminPageHeader } from "@/components/admin/ui";
 
 export const revalidate = 0;
 
-export default async function NuevoProductoPage() {
+export default async function NewProductPage() {
   const categories = await prisma.category.findMany({ orderBy: { order: "asc" } });
-
   return (
     <div>
-      <h1 className="font-serif text-2xl text-brand-ink mb-6">Nuevo producto</h1>
-      <ProductForm categories={categories} />
+      <AdminPageHeader title="Nuevo producto" />
+      <ProductForm initial={{ ...emptyProduct, categoryId: categories[0]?.id ?? "", role: categories[0]?.role ?? "CARNE" }} categories={categories} />
     </div>
   );
 }

@@ -2,295 +2,170 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Field, Toggle, Notice, ImageField, apiFetch } from "@/components/admin/ui";
+import { formatPrice } from "@/lib/format";
+import { roundPrice } from "@/lib/pricing";
 
-type Category = { id: string; name: string };
+type Category = { id: string; name: string; role: string };
 
-type Variant = {
-  colorName: string;
-  colorHex: string;
-  lensColor: string;
-  sku: string;
-  stock: number;
-  priceDelta: number;
-};
-
-type InitialData = {
+export type ProductFormValues = {
   id?: string;
   name: string;
   description: string;
-  collection: string;
-  basePrice: number;
-  cashPrice: number | null;
+  imageUrl: string;
   categoryId: string;
+  role: string;
+  tier: string;
+  saleUnit: string;
+  priceMode: string;
+  pricePerKg: string;
+  fixedPrice: string;
+  portionMinGrams: string;
+  portionMaxGrams: string;
+  portionRefGrams: string;
+  unitGrams: string;
+  unitLabel: string;
+  suggestedPerPerson: string;
+  minQuantity: string;
   featured: boolean;
   active: boolean;
-  images: { url: string }[];
-  variants: Variant[];
+  recommendable: boolean;
+  order: string;
 };
 
-const COLLECTIONS = ["Ferrari", "Signature", "Classic"];
+export const emptyProduct: ProductFormValues = {
+  name: "", description: "", imageUrl: "", categoryId: "", role: "CARNE", tier: "CLASICO", saleUnit: "PORTION", priceMode: "PER_KG",
+  pricePerKg: "", fixedPrice: "", portionMinGrams: "450", portionMaxGrams: "600", portionRefGrams: "500", unitGrams: "", unitLabel: "porción",
+  suggestedPerPerson: "", minQuantity: "1", featured: false, active: true, recommendable: true, order: "0",
+};
 
-const emptyVariant = (): Variant => ({
-  colorName: "",
-  colorHex: "#111111",
-  lensColor: "",
-  sku: "",
-  stock: 0,
-  priceDelta: 0,
-});
+const ROLE_LABELS: Record<string, string> = { CARNE: "Carne (corte)", ACHURA: "Achura", EMBUTIDO: "Embutido", EXTRA: "Extra (provoleta, pan)", ACCESORIO: "Accesorio / condimento", FUEGO: "Para el fuego" };
+const TIER_LABELS: Record<string, string> = { ECONOMICO: "Económico", CLASICO: "Clásico", PREMIUM: "Premium" };
 
-export function ProductForm({ categories, initial }: { categories: Category[]; initial?: InitialData }) {
+export function ProductForm({ initial, categories }: { initial: ProductFormValues; categories: Category[] }) {
   const router = useRouter();
-  const isEdit = Boolean(initial?.id);
-
-  const [name, setName] = useState(initial?.name ?? "");
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [collection, setCollection] = useState(initial?.collection ?? "Classic");
-  const [basePrice, setBasePrice] = useState(initial?.basePrice ?? 0);
-  const [cashPrice, setCashPrice] = useState(initial?.cashPrice != null ? String(initial.cashPrice) : "");
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? categories[0]?.id ?? "");
-  const [featured, setFeatured] = useState(initial?.featured ?? false);
-  const [active, setActive] = useState(initial?.active ?? true);
-  const [images, setImages] = useState<string[]>(initial?.images.map((i) => i.url) ?? [""]);
-  const [variants, setVariants] = useState<Variant[]>(initial?.variants.length ? initial.variants : [emptyVariant()]);
+  const [v, setV] = useState<ProductFormValues>(initial);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const set = <K extends keyof ProductFormValues>(k: K, val: ProductFormValues[K]) => setV((s) => ({ ...s, [k]: val }));
 
-  function updateVariant(index: number, patch: Partial<Variant>) {
-    setVariants((prev) => prev.map((v, i) => (i === index ? { ...v, ...patch } : v)));
-  }
+  const isPortion = v.saleUnit === "PORTION";
+  const perKg = v.priceMode === "PER_KG";
+  const grams = isPortion ? Number(v.portionRefGrams) : Number(v.unitGrams);
+  const preview = perKg ? (Number(v.pricePerKg) && grams ? roundPrice((Number(v.pricePerKg) * grams) / 1000) : 0) : Number(v.fixedPrice) || 0;
 
-  function removeVariant(index: number) {
-    setVariants((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateImage(index: number, value: string) {
-    setImages((prev) => prev.map((url, i) => (i === index ? value : url)));
-  }
-
-  function removeImage(index: number) {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function save(e: React.FormEvent) {
     e.preventDefault();
+    setSaving(true);
     setError(null);
-
-    const cleanImages = images.filter((url) => url.trim());
-    const cleanVariants = variants.filter((v) => v.colorName.trim());
-
-    if (!cleanVariants.length) {
-      setError("Agrega al menos una variante de color");
-      return;
+    try {
+      if (v.id) await apiFetch(`/api/admin/products/${v.id}`, { method: "PUT", body: JSON.stringify(v) });
+      else await apiFetch("/api/admin/products", { method: "POST", body: JSON.stringify(v) });
+      router.push("/admin/productos");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setSaving(false);
     }
-    if (cleanVariants.some((v) => !v.sku.trim())) {
-      setError("Todas las variantes necesitan un SKU");
-      return;
+  }
+
+  async function remove() {
+    if (!v.id || !confirm("¿Eliminar este producto? Si tiene pedidos o combos asociados se desactivará en lugar de borrarse.")) return;
+    try {
+      const data = await apiFetch<{ message?: string }>(`/api/admin/products/${v.id}`, { method: "DELETE" });
+      if (data.message) alert(data.message);
+      router.push("/admin/productos");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
     }
-
-    setLoading(true);
-    const payload = {
-      name,
-      description,
-      collection,
-      basePrice: Number(basePrice),
-      cashPrice: cashPrice.trim() === "" ? null : Number(cashPrice),
-      categoryId,
-      featured,
-      active,
-      images: cleanImages.map((url) => ({ url })),
-      variants: cleanVariants,
-    };
-
-    const res = await fetch(isEdit ? `/api/admin/products/${initial!.id}` : "/api/admin/products", {
-      method: isEdit ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    setLoading(false);
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "No se pudo guardar el producto");
-      return;
-    }
-
-    router.push("/admin/productos");
-    router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      <section className="rounded-2xl border border-brand-line bg-white p-6 space-y-4">
-        <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50">Datos generales</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <input
-            required
-            placeholder="Nombre del producto"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="input-field sm:col-span-2"
-          />
-          <textarea
-            placeholder="Descripcion"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="input-field sm:col-span-2"
-            rows={3}
-          />
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="input-field">
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select value={collection} onChange={(e) => setCollection(e.target.value)} className="input-field">
-            {COLLECTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <div>
-            <input
-              type="number"
-              required
-              min={0}
-              placeholder="Precio tarjeta/Mercado Pago (ARS)"
-              value={basePrice}
-              onChange={(e) => setBasePrice(Number(e.target.value))}
-              className="input-field w-full"
-            />
-            <p className="mt-1 text-xs text-brand-ink/50">Precio que se muestra por defecto en la tienda</p>
+    <form onSubmit={save} className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="space-y-6">
+        <section className="rounded-2xl border border-brand-line bg-white p-6">
+          <h2 className="font-display text-xl uppercase">Datos básicos</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Nombre" className="sm:col-span-2"><input className="input-field" value={v.name} onChange={(e) => set("name", e.target.value)} required /></Field>
+            <Field label="Descripción" className="sm:col-span-2"><textarea className="input-field min-h-[80px]" value={v.description} onChange={(e) => set("description", e.target.value)} /></Field>
+            <Field label="Categoría">
+              <select className="input-field" value={v.categoryId} onChange={(e) => { set("categoryId", e.target.value); const c = categories.find((x) => x.id === e.target.value); if (c) set("role", c.role); }} required>
+                <option value="">Elegí…</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Rol en el asado" hint="Define cómo lo usan la calculadora y el presupuesto.">
+              <select className="input-field" value={v.role} onChange={(e) => set("role", e.target.value)}>
+                {Object.entries(ROLE_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </Field>
+            <Field label="Nivel">
+              <select className="input-field" value={v.tier} onChange={(e) => set("tier", e.target.value)}>
+                {Object.entries(TIER_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </Field>
+            <Field label="Orden de aparición"><input className="input-field" type="number" value={v.order} onChange={(e) => set("order", e.target.value)} /></Field>
+            <div className="sm:col-span-2"><ImageField value={v.imageUrl} onChange={(u) => set("imageUrl", u)} /></div>
           </div>
-          <div>
-            <input
-              type="number"
-              min={0}
-              placeholder="Precio efectivo/transferencia (opcional)"
-              value={cashPrice}
-              onChange={(e) => setCashPrice(e.target.value)}
-              className="input-field w-full"
-            />
-            <p className="mt-1 text-xs text-brand-ink/50">Dejar vacio si es el mismo precio que tarjeta</p>
+        </section>
+
+        <section className="rounded-2xl border border-brand-line bg-white p-6">
+          <h2 className="font-display text-xl uppercase">Unidad de venta y porciones</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Se vende por">
+              <select className="input-field" value={v.saleUnit} onChange={(e) => { const su = e.target.value; set("saleUnit", su); set("unitLabel", su === "PORTION" ? "porción" : su === "UNIT" ? "unidad" : "bolsa"); if (su !== "PORTION" && v.priceMode === "PER_KG" && !v.unitGrams) set("priceMode", "FIXED"); }}>
+                <option value="PORTION">Porción (peso estimado)</option>
+                <option value="UNIT">Unidad (chorizo, provoleta)</option>
+                <option value="PACKAGE">Paquete / bolsa</option>
+              </select>
+            </Field>
+            <Field label="Etiqueta de la unidad" hint='Ej: "porción", "unidad", "bolsa 4 kg".'><input className="input-field" value={v.unitLabel} onChange={(e) => set("unitLabel", e.target.value)} /></Field>
+            {isPortion ? (
+              <>
+                <Field label="Peso mínimo por porción (g)"><input className="input-field" type="number" value={v.portionMinGrams} onChange={(e) => set("portionMinGrams", e.target.value)} /></Field>
+                <Field label="Peso máximo por porción (g)"><input className="input-field" type="number" value={v.portionMaxGrams} onChange={(e) => set("portionMaxGrams", e.target.value)} /></Field>
+                <Field label="Peso de referencia para el precio (g)" hint="Se usa para calcular el precio estimado de una porción."><input className="input-field" type="number" value={v.portionRefGrams} onChange={(e) => set("portionRefGrams", e.target.value)} /></Field>
+              </>
+            ) : (
+              <Field label="Peso aproximado por unidad (g)" hint="Opcional. Lo usa la calculadora para estimar carne total."><input className="input-field" type="number" value={v.unitGrams} onChange={(e) => set("unitGrams", e.target.value)} /></Field>
+            )}
+            <Field label="Cantidad mínima"><input className="input-field" type="number" min={1} value={v.minQuantity} onChange={(e) => set("minQuantity", e.target.value)} /></Field>
+            <Field label="Sugerido por persona (calculadora)" hint="Ej: chorizo 1, morcilla 0,5, provoleta 0,25. Vacío si no aplica."><input className="input-field" type="number" step="0.05" value={v.suggestedPerPerson} onChange={(e) => set("suggestedPerPerson", e.target.value)} /></Field>
           </div>
-          <div className="flex items-center gap-6 sm:col-span-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
-              Destacado
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-              Activo (visible en la tienda)
-            </label>
+        </section>
+
+        <section className="rounded-2xl border border-brand-line bg-white p-6">
+          <h2 className="font-display text-xl uppercase">Precio</h2>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Modo de precio">
+              <select className="input-field" value={v.priceMode} onChange={(e) => set("priceMode", e.target.value)}>
+                <option value="PER_KG">Por kilo (precio estimado por porción)</option>
+                <option value="FIXED">Precio fijo por {v.unitLabel || "unidad"}</option>
+              </select>
+            </Field>
+            {perKg ? (
+              <Field label="Precio por kilo ($)"><input className="input-field" type="number" value={v.pricePerKg} onChange={(e) => set("pricePerKg", e.target.value)} /></Field>
+            ) : (
+              <Field label={`Precio por ${v.unitLabel || "unidad"} ($)`}><input className="input-field" type="number" value={v.fixedPrice} onChange={(e) => set("fixedPrice", e.target.value)} /></Field>
+            )}
           </div>
-        </div>
-      </section>
+          <p className="mt-3 text-sm">
+            Precio que verá el cliente: <strong>{formatPrice(preview)}</strong> / {v.unitLabel || "unidad"}
+            {perKg && <span className="text-brand-ash"> (estimado, se confirma al pesar)</span>}
+          </p>
+        </section>
+      </div>
 
-      <section className="rounded-2xl border border-brand-line bg-white p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50">Imagenes (URL)</h2>
-          <button type="button" onClick={() => setImages((p) => [...p, ""])} className="text-sm text-brand-gold hover:underline">
-            + Agregar imagen
-          </button>
-        </div>
-        <p className="text-xs text-brand-ink/50">
-          Pega la URL de cada foto (por ejemplo subida a Cloudinary, Imgur o Google Drive publico).
-        </p>
-        <div className="space-y-2">
-          {images.map((url, i) => (
-            <div key={i} className="flex gap-2">
-              <input
-                placeholder="https://..."
-                value={url}
-                onChange={(e) => updateImage(i, e.target.value)}
-                className="input-field flex-1"
-              />
-              <button type="button" onClick={() => removeImage(i)} className="text-brand-ferrari text-sm px-2">
-                Quitar
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-brand-line bg-white p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm uppercase tracking-[0.2em] text-brand-ink/50">Variantes de color y stock</h2>
-          <button
-            type="button"
-            onClick={() => setVariants((p) => [...p, emptyVariant()])}
-            className="text-sm text-brand-gold hover:underline"
-          >
-            + Agregar variante
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {variants.map((v, i) => (
-            <div key={i} className="grid grid-cols-2 gap-3 rounded-xl border border-brand-line p-4 sm:grid-cols-6">
-              <input
-                placeholder="Color (ej. Negro)"
-                value={v.colorName}
-                onChange={(e) => updateVariant(i, { colorName: e.target.value })}
-                className="input-field sm:col-span-2"
-              />
-              <input
-                type="color"
-                value={v.colorHex}
-                onChange={(e) => updateVariant(i, { colorHex: e.target.value })}
-                className="h-10 w-full rounded border border-brand-line"
-              />
-              <input
-                placeholder="Lente (opcional)"
-                value={v.lensColor}
-                onChange={(e) => updateVariant(i, { lensColor: e.target.value })}
-                className="input-field sm:col-span-2"
-              />
-              <input
-                placeholder="SKU"
-                value={v.sku}
-                onChange={(e) => updateVariant(i, { sku: e.target.value })}
-                className="input-field"
-              />
-              <input
-                type="number"
-                min={0}
-                placeholder="Stock"
-                value={v.stock}
-                onChange={(e) => updateVariant(i, { stock: Number(e.target.value) })}
-                className="input-field"
-              />
-              <input
-                type="number"
-                placeholder="Ajuste precio (+/-)"
-                value={v.priceDelta}
-                onChange={(e) => updateVariant(i, { priceDelta: Number(e.target.value) })}
-                className="input-field"
-              />
-              <button
-                type="button"
-                onClick={() => removeVariant(i)}
-                className="text-brand-ferrari text-sm sm:col-span-6 text-left"
-              >
-                Quitar variante
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {error && <p className="text-sm text-brand-ferrari">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-full bg-brand-ink px-10 py-3 text-sm uppercase tracking-wide text-brand-cream hover:bg-brand-gold hover:text-brand-ink transition-colors disabled:opacity-50"
-      >
-        {loading ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear producto"}
-      </button>
+      <aside className="h-fit space-y-3 lg:sticky lg:top-6">
+        <Toggle label="Disponible" hint="Si está desactivado no se muestra en la web." checked={v.active} onChange={(b) => set("active", b)} />
+        <Toggle label="Destacado" hint="Aparece en el inicio como recomendado." checked={v.featured} onChange={(b) => set("featured", b)} />
+        <Toggle label="Recomendable" hint="La calculadora y el presupuesto pueden sugerirlo." checked={v.recommendable} onChange={(b) => set("recommendable", b)} />
+        {error && <Notice tone="error">{error}</Notice>}
+        <button type="submit" disabled={saving} className="btn btn-primary w-full">{saving ? "Guardando…" : "Guardar producto"}</button>
+        {v.id && <button type="button" onClick={remove} className="btn btn-outline w-full">Eliminar</button>}
+      </aside>
     </form>
   );
 }

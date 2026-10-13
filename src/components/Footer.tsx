@@ -1,83 +1,79 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
+import { whatsappLink, formatArPhone } from "@/lib/whatsapp";
+import type { BusinessSettings } from "@/lib/settings";
 
-const INSTAGRAM = process.env.NEXT_PUBLIC_INSTAGRAM ?? "visionequis";
-const WHATSAPP = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "5493435173734";
+type HoursRow = { name: string; text: string; open: boolean };
 
-export function Footer() {
+export function Footer({ settings, hours }: { settings: BusinessSettings; hours: HoursRow[] }) {
   return (
-    <footer className="bg-brand-ink text-brand-cream/80 border-t border-white/10">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 grid gap-10 sm:grid-cols-3">
-        <div>
-          <span className="font-serif text-xl text-brand-cream">
-            VISION <span className="text-brand-gold">EQUIS</span>
-          </span>
-          <p className="mt-3 text-sm leading-relaxed">
-            Distribuidor autorizado Ray-Ban en Parana, Entre Rios. Anteojos de sol
-            originales, incluyendo la coleccion Scuderia Ferrari.
-          </p>
+    <footer className="bg-brand-carbon text-brand-cream">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4 lg:px-8">
+        <div className="md:col-span-1">
+          <Logo tone="dark" />
+          <p className="mt-4 text-sm text-brand-cream/65">{settings.slogan2}</p>
+          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-brand-cream/40">{settings.city}</p>
         </div>
 
         <div>
-          <h3 className="text-xs uppercase tracking-[0.2em] text-brand-gold-light mb-3">
-            Contacto
-          </h3>
-          <ul className="space-y-2 text-sm">
-            <li>
-              <a
-                href={`https://wa.me/${WHATSAPP}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-brand-gold transition-colors"
-              >
-                WhatsApp: +54 9 343 517-3734
-              </a>
-            </li>
-            <li>
-              <a
-                href={`https://instagram.com/${INSTAGRAM}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-brand-gold transition-colors"
-              >
-                Instagram: @{INSTAGRAM}
-              </a>
-            </li>
-            <li>Zona Hipodromo, Parana, Entre Rios</li>
+          <h3 className="font-display text-sm uppercase tracking-[0.25em] text-brand-ember-light">Comprar</h3>
+          <ul className="mt-4 space-y-2 text-sm text-brand-cream/80">
+            <li><Link href="/catalogo" className="hover:text-brand-cream">Armá tu asado</Link></li>
+            <li><Link href="/combos" className="hover:text-brand-cream">Combos prearmados</Link></li>
+            <li><Link href="/calculadora" className="hover:text-brand-cream">Calculadora de asado</Link></li>
+            <li><Link href="/presupuesto" className="hover:text-brand-cream">Asado según tu presupuesto</Link></li>
+            <li><Link href="/fuego" className="hover:text-brand-cream">Todo para el fuego</Link></li>
           </ul>
         </div>
 
         <div>
-          <h3 className="text-xs uppercase tracking-[0.2em] text-brand-gold-light mb-3">
-            Tienda
-          </h3>
-          <ul className="space-y-2 text-sm">
-            <li>
-              <Link href="/catalogo" className="hover:text-brand-gold transition-colors">
-                Catalogo completo
-              </Link>
-            </li>
-            <li>
-              <Link href="/catalogo?coleccion=Ferrari" className="hover:text-brand-gold transition-colors">
-                Coleccion Ferrari
-              </Link>
-            </li>
-            <li>
-              <Link href="/ubicacion" className="hover:text-brand-gold transition-colors">
-                Retiro en local
-              </Link>
-            </li>
+          <h3 className="font-display text-sm uppercase tracking-[0.25em] text-brand-ember-light">Horarios</h3>
+          <ul className="mt-4 space-y-1.5 text-sm">
+            {hours.map((h) => (
+              <li key={h.name} className="flex justify-between gap-4">
+                <span className={h.open ? "text-brand-cream/80" : "text-brand-cream/35"}>{h.name}</span>
+                <span className={h.open ? "text-brand-cream" : "text-brand-cream/35"}>{h.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="font-display text-sm uppercase tracking-[0.25em] text-brand-ember-light">Contacto</h3>
+          <ul className="mt-4 space-y-2 text-sm text-brand-cream/80">
+            {settings.whatsapp ? (
+              <li>
+                <a href={whatsappLink(settings.whatsapp)} target="_blank" rel="noopener noreferrer" className="hover:text-brand-cream">
+                  WhatsApp {formatArPhone(settings.whatsapp)}
+                </a>
+              </li>
+            ) : (
+              <li className="text-brand-cream/50">WhatsApp: a configurar desde el panel</li>
+            )}
+            {settings.address && <li>{settings.address}</li>}
+            <li>{settings.city}</li>
+            {settings.instagram && (
+              <li>
+                <a href={`https://instagram.com/${settings.instagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer" className="hover:text-brand-cream">
+                  Instagram @{settings.instagram.replace("@", "")}
+                </a>
+              </li>
+            )}
+            {settings.facebook && (
+              <li>
+                <a href={settings.facebook.startsWith("http") ? settings.facebook : `https://facebook.com/${settings.facebook}`} target="_blank" rel="noopener noreferrer" className="hover:text-brand-cream">
+                  Facebook
+                </a>
+              </li>
+            )}
           </ul>
         </div>
       </div>
-      <div className="relative border-t border-white/10 py-4 text-center text-xs text-brand-cream/50">
-        © {new Date().getFullYear()} Vision Equis · Distribuidor autorizado Ray-Ban · Parana, Argentina
-        <Link
-          href="/admin/login"
-          aria-label="Panel de administracion"
-          className="absolute right-4 top-1/2 -translate-y-1/2 px-2 py-2 text-sm text-brand-cream/15 hover:text-brand-cream/50 transition-colors"
-        >
-          ⚙
-        </Link>
+      <div className="border-t border-white/10">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-5 text-xs text-brand-cream/40 sm:flex-row sm:px-6 lg:px-8">
+          <span>© {new Date().getFullYear()} {settings.name} · {settings.city}</span>
+          <span>Los precios de cortes por kilo son estimados y se confirman por WhatsApp. <Link href="/admin/login" className="ml-2 hover:text-brand-cream/70">Admin</Link></span>
+        </div>
       </div>
     </footer>
   );

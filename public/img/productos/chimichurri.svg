@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2e2a27"/>
+      <stop offset="100%" stop-color="#171717"/>
+    </radialGradient>
+    <linearGradient id="grill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity=".45"/>
+    </linearGradient>
+    <pattern id="lines" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="none"/>
+      <path d="M0 20h40" stroke="#ffffff" stroke-opacity=".035" stroke-width="10"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <rect width="800" height="600" fill="url(#lines)"/>
+  <g transform="translate(400 265) scale(1.9)"><circle r="60" fill="#e8c27a"/><circle r="45" fill="#f6dfae"/><path d="M-30-10c20-15 40-15 60 0" stroke="#d99a3c" stroke-width="6" fill="none" stroke-linecap="round" opacity=".7"/></g>
+  <rect width="800" height="600" fill="url(#grill)"/>
+  <rect x="40" y="40" width="720" height="520" rx="18" fill="none" stroke="#B83227" stroke-opacity=".55" stroke-width="3"/>
+  <text x="400" y="505" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="46" fill="#F8F5EF" letter-spacing="2">Chimichurri</text>
+  <text x="400" y="545" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#F8F5EF" fill-opacity=".55" letter-spacing="4">IMAGEN ILUSTRATIVA</text>
+</svg>

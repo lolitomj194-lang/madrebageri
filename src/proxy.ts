@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE_NAME, verifyAdminToken } from "@/lib/auth";
 
-const PUBLIC_PATHS = ["/admin/login", "/api/admin/login", "/api/admin/logout", "/api/admin/seed-init"];
+const PUBLIC_PATHS = ["/admin/login", "/api/admin/login", "/api/admin/logout"];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -20,7 +20,8 @@ export function proxy(req: NextRequest) {
       if (isAdminApi) {
         return NextResponse.json({ error: "No autorizado" }, { status: 401 });
       }
-      return NextResponse.redirect(new URL("/admin/login", req.url));
+      const login = new URL("/admin/login", req.url);
+      return NextResponse.redirect(login);
     }
   }
 
