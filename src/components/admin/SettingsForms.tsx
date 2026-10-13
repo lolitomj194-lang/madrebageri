@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, Field, ImageField, Notice, Toggle } from "@/components/admin/ui";
+import { TestEmailButton } from "@/components/admin/TestEmailButton";
 import type { BusinessSettings, CalculatorSettings } from "@/lib/settings";
 
 function useSave(url: string) {
@@ -27,7 +28,7 @@ function useSave(url: string) {
 
 export function BusinessSettingsForm({ settings }: { settings: BusinessSettings }) {
   const [v, setV] = useState({
-    name: settings.name, slogan: settings.slogan, slogan2: settings.slogan2, whatsapp: settings.whatsapp, address: settings.address, city: settings.city,
+    name: settings.name, slogan: settings.slogan, slogan2: settings.slogan2, whatsapp: settings.whatsapp, notificationEmail: settings.notificationEmail, address: settings.address, city: settings.city,
     instagram: settings.instagram ?? "", facebook: settings.facebook ?? "", logoUrl: settings.logoUrl ?? "", heroImageUrl: settings.heroImageUrl ?? "",
     estimateNotice: settings.estimateNotice, policies: settings.policies ?? "",
     expressEnabled: settings.expressEnabled, scheduledEnabled: settings.scheduledEnabled, pickupEnabled: settings.pickupEnabled,
@@ -42,6 +43,12 @@ export function BusinessSettingsForm({ settings }: { settings: BusinessSettings 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Nombre comercial"><input className="input-field" value={v.name} onChange={(e) => set("name", e.target.value)} /></Field>
         <Field label="WhatsApp comercial" hint="Celular argentino con código de área (ej: 343 5123456). Acá llegan los pedidos."><input className="input-field" value={v.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="343 5123456" /></Field>
+        <div className="sm:col-span-2">
+          <Field label="Correo para avisos de pedidos" hint="Cada nueva solicitud se envía completa a esta casilla. Requiere un proveedor de correo configurado en el servidor (ver README).">
+            <input className="input-field" type="email" value={v.notificationEmail} onChange={(e) => set("notificationEmail", e.target.value)} placeholder="pedidos@tunegocio.com" />
+          </Field>
+          <TestEmailButton />
+        </div>
         <Field label="Slogan principal"><input className="input-field" value={v.slogan} onChange={(e) => set("slogan", e.target.value)} /></Field>
         <Field label="Slogan secundario"><input className="input-field" value={v.slogan2} onChange={(e) => set("slogan2", e.target.value)} /></Field>
         <Field label="Dirección del local" hint="Se muestra para retiro por local."><input className="input-field" value={v.address} onChange={(e) => set("address", e.target.value)} /></Field>

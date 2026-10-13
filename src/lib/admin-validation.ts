@@ -185,8 +185,13 @@ export function parseHour(body: Record<string, unknown>) {
 
 export function parseBusinessSettings(body: Record<string, unknown>) {
   const whatsappDigits = String(body.whatsapp ?? "").replace(/\D/g, "");
+  const notificationEmail = (str(body.notificationEmail, 160) ?? "").toLowerCase();
+  if (notificationEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notificationEmail)) {
+    throw new ValidationError("El correo de avisos no es válido.");
+  }
   return {
     name: str(body.name, 80) ?? "ENTRE CORTES",
+    notificationEmail,
     slogan: str(body.slogan, 160) ?? "",
     slogan2: str(body.slogan2, 160) ?? "",
     whatsapp: whatsappDigits,

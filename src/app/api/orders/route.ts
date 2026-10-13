@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendEmail } from "@/lib/email";
+import { buildOrderEmail } from "@/lib/order-email";
 import { getBusinessSettings } from "@/lib/settings";
 import { getDeliveryOptions, computeDeliveryFee } from "@/lib/delivery";
 import { checkCoupon } from "@/lib/coupons";
@@ -242,8 +244,21 @@ export async function POST(req: NextRequest) {
       });
       const trackingUrl = `${baseUrl}/pedido/${created.publicToken}`;
       const message = buildWhatsappMessage({ ...created, zoneName: zone?.name ?? null }, settings.name, trackingUrl);
-      return tx.order.update({ where: { id: created.id }, data: { whatsappMessage: message } });
+      return tx.order.update({ where: { id: created.id }, data: { whatsappMessage: message }, include: { items: true } });
     });
+
+    // Aviso interno por correo: se envia despues de responder y nunca bloquea ni rompe la solicitud.
+    if (settings.notificationEmail) {
+      after(async () => {
+        try {
+          const mail = buildOrderEmail({ ...order, zoneName: zone?.name ?? null }, settings.name, baseUrl);
+          const result = await sendEmail({ to: settings.notificationEmail, ...mail });
+          if (!result.sent) console.warn(`[orders] aviso por correo no enviado (#${order.number}): ${result.reason}`);
+        } catch (err) {
+          console.error(`[orders] error enviando aviso por correo (#${order.number})`, err);
+        }
+      });
+    }
 
     return NextResponse.json({
       orderNumber: order.number,

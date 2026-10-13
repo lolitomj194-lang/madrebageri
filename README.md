@@ -39,6 +39,17 @@ Panel: `http://localhost:3000/admin/login` con `ADMIN_EMAIL` / `ADMIN_PASSWORD` 
 | `SETUP_TOKEN` | Solo en el primer deploy | Habilita `/api/setup?token=...` para cargar datos iniciales sin terminal. |
 | `NEXT_PUBLIC_BASE_URL` | Sí (prod) | URL pública del sitio (ej. `https://entrecortes.com.ar`). Se usa en SEO y en el enlace de seguimiento del mensaje de WhatsApp. |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | No | Habilitan el botón “Subir foto” en el panel. Sin esto, las imágenes se cargan pegando una URL. |
+| `RESEND_API_KEY` | Para avisos por correo | API key de [Resend](https://resend.com). Con el dominio de prueba (`onboarding@resend.dev`) solo se puede enviar a la casilla con la que se creó la cuenta de Resend; con un dominio propio verificado, a cualquiera. |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | Alternativa a Resend | Envío por SMTP. Para Gmail: host `smtp.gmail.com`, puerto `465`, usuario = tu Gmail, contraseña = una [contraseña de aplicación](https://myaccount.google.com/apppasswords). |
+| `EMAIL_FROM` | No | Remitente (ej. `ENTRE CORTES <pedidos@tudominio.com>`). |
+
+### Avisos por correo de cada pedido
+
+En **Configuración → Correo para avisos de pedidos** se define la casilla que recibe cada nueva solicitud
+con el detalle completo (cliente, WhatsApp, entrega, productos, totales, observaciones y enlaces al panel y
+al seguimiento). El envío ocurre después de registrar el pedido y nunca bloquea la solicitud: si el proveedor
+falla, el pedido igual queda guardado y el error se registra en los logs. El botón **Enviar correo de
+prueba** verifica la configuración.
 
 Ejemplo de `.env` local:
 

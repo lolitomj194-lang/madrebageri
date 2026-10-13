@@ -294,6 +294,8 @@ model BusinessSettings {
   slogan    String @default("Vos pone el fuego. Nosotros, el asado.")
   slogan2   String @default("Del corte a tu parrilla, sin vueltas.")
   whatsapp  String @default("")
+  /// Correo que recibe el aviso de cada nueva solicitud (vacio = sin aviso).
+  notificationEmail String @default("")
   address   String @default("")
   city      String @default("Parana, Entre Rios")
   instagram String?
