@@ -35,8 +35,9 @@ export default async function Home() {
       {/* HERO */}
       <section className="relative overflow-hidden bg-brand-carbon text-brand-cream">
         <div className="absolute inset-0">
-          <Image src={heroImage} alt="Asado argentino en la parrilla" fill priority className="object-cover opacity-80" sizes="100vw" />
-          <div className="absolute inset-0 bg-gradient-to-t from-brand-carbon via-brand-carbon/60 to-brand-carbon/20" />
+          <Image src={heroImage} alt="Asado argentino en la parrilla" fill priority className="object-cover" sizes="100vw" />
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-carbon/95 via-brand-carbon/75 to-brand-carbon/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-brand-carbon via-transparent to-brand-carbon/40" />
         </div>
         <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-20 sm:px-6 lg:px-8 lg:pb-32 lg:pt-28">
           <Reveal>
