@@ -111,7 +111,7 @@ export function CheckoutForm({ estimateNotice, businessName }: { estimateNotice:
           ...form,
           deliveryMethod: method,
           couponCode: coupon?.code,
-          items: items.map((i) => ({ kind: i.kind, id: i.id, quantity: i.quantity })),
+          items: items.map((i) => ({ kind: i.kind, id: i.id, quantity: i.quantity, persons: i.persons })),
         }),
       });
       const data = await res.json();

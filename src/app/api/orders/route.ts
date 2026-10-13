@@ -7,11 +7,11 @@ import { getDeliveryOptions, computeDeliveryFee } from "@/lib/delivery";
 import { checkCoupon } from "@/lib/coupons";
 import { normalizeArPhone, whatsappLink } from "@/lib/whatsapp";
 import { unitPrice, isEstimated, estimatedWeight, lineDetail, pluralUnit } from "@/lib/pricing";
-import { comboPrice } from "@/lib/catalog";
+import { comboTotal, comboSummary, clampPersons } from "@/lib/combo-math";
 import { buildWhatsappMessage } from "@/lib/order-message";
 import type { DeliveryMethod } from "@/generated/prisma/enums";
 
-type IncomingItem = { kind: "product" | "combo"; id: string; quantity: number };
+type IncomingItem = { kind: "product" | "combo"; id: string; quantity: number; persons?: number };
 
 type Body = {
   clientRequestId?: string;
@@ -156,29 +156,53 @@ export async function POST(req: NextRequest) {
     } else {
       const c = combos.find((x) => x.id === item.id);
       if (!c) return bad("Uno de los combos ya no está disponible. Revisá tu carrito.");
-      const perPerson = c.pricing === "PER_PERSON";
-      if (perPerson && quantity < c.persons) return bad(`${c.name}: mínimo ${c.persons} personas.`);
-      if (perPerson && c.maxPersons && quantity > c.maxPersons) return bad(`${c.name}: máximo ${c.maxPersons} personas.`);
-      const mult = perPerson ? quantity : 1;
-      const included = c.items
-        .map((it) => {
-          const q = it.quantity * mult;
-          return `${Number.isInteger(q) ? q : q.toFixed(1)} ${pluralUnit(it.product.unitLabel, q)} de ${it.product.name}`;
-        })
-        .join(", ");
-      const total = perPerson ? comboPrice(c, quantity) : c.price * quantity;
-      itemsData.push({
-        comboId: c.id,
-        name: c.name,
-        detail: perPerson ? `${quantity} personas (${included})` : `${quantity} combo${quantity > 1 ? "s" : ""} (${included})`,
-        quantity,
-        unitLabel: perPerson ? "persona" : "combo",
-        unitPrice: c.price,
-        lineTotal: total,
-        estimated: false,
-        estWeightMinG: null,
-        estWeightMaxG: null,
-      });
+      const itemsLike = c.items.map((it) => ({
+        name: it.product.name,
+        unitLabel: it.product.unitLabel,
+        quantity: it.quantity,
+        inGrams: it.inGrams,
+        perExtraPerson: it.perExtraPerson,
+        note: it.note,
+        saleUnit: it.product.saleUnit,
+        portionMinGrams: it.product.portionMinGrams,
+        portionMaxGrams: it.product.portionMaxGrams,
+      }));
+      if (c.pricing === "PER_PERSON") {
+        if (quantity < c.persons) return bad(`${c.name}: mínimo ${c.persons} personas.`);
+        if (c.maxPersons && quantity > c.maxPersons) return bad(`${c.name}: máximo ${c.maxPersons} personas.`);
+        itemsData.push({
+          comboId: c.id,
+          name: c.name,
+          detail: `${quantity} personas (${comboSummary(c, itemsLike, quantity)})`,
+          quantity,
+          unitLabel: "persona",
+          unitPrice: c.price,
+          lineTotal: comboTotal(c, quantity),
+          estimated: false,
+          estWeightMinG: null,
+          estWeightMaxG: null,
+        });
+      } else {
+        const requested = c.pricing === "SCALABLE" ? Math.floor(Number(item.persons ?? c.persons)) : c.persons;
+        if (c.pricing === "SCALABLE" && requested !== clampPersons(c, requested)) {
+          return bad(`${c.name}: la cantidad de personas debe estar entre ${c.persons} y ${c.maxPersons ?? "sin límite"}.`);
+        }
+        const persons = clampPersons(c, requested);
+        const unit = comboTotal(c, persons);
+        const name = c.pricing === "SCALABLE" ? `${c.name} (${persons} personas)` : c.name;
+        itemsData.push({
+          comboId: c.id,
+          name,
+          detail: `${quantity} combo${quantity > 1 ? "s" : ""} (${comboSummary(c, itemsLike, persons)})`,
+          quantity,
+          unitLabel: "combo",
+          unitPrice: unit,
+          lineTotal: unit * quantity,
+          estimated: false,
+          estWeightMinG: null,
+          estWeightMaxG: null,
+        });
+      }
     }
   }
 

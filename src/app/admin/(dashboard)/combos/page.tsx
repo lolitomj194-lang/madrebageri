@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatPrice } from "@/lib/format";
+import { formatComboItem } from "@/lib/combo-math";
 import { AdminPageHeader } from "@/components/admin/ui";
 
 export const revalidate = 0;
@@ -16,12 +17,12 @@ export default async function AdminCombosPage() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-display text-xl uppercase">{c.name}</h2>
-                <p className="text-xs text-brand-ash">{c.pricing === "PER_PERSON" ? `Por persona · desde ${c.persons}` : `${c.persons} personas`}{c.featured ? " · destacado" : ""}{c.active ? "" : " · inactivo"}</p>
+                <p className="text-xs text-brand-ash">{c.pricing === "PER_PERSON" ? `Por persona · desde ${c.persons}` : c.pricing === "SCALABLE" ? `Base ${c.persons} personas${c.extraPersonPrice ? ` · +${formatPrice(c.extraPersonPrice)} por persona extra` : ""}${c.maxPersons ? ` · hasta ${c.maxPersons}` : ""}` : `${c.persons} personas`}{c.featured ? " · destacado" : ""}{c.active ? "" : " · INACTIVO"}</p>
               </div>
               <p className="font-display text-2xl">{formatPrice(c.price)}{c.pricing === "PER_PERSON" && <span className="text-xs text-brand-ash"> /pers.</span>}</p>
             </div>
             <ul className="mt-3 text-sm text-brand-smoke">
-              {c.items.map((it) => <li key={it.id}>· {it.quantity} {it.product.unitLabel} de {it.product.name}</li>)}
+              {c.items.map((it) => <li key={it.id}>· {formatComboItem({ name: it.product.name, unitLabel: it.product.unitLabel, quantity: it.quantity, inGrams: it.inGrams, perExtraPerson: it.perExtraPerson }, it.quantity)}{c.pricing === "SCALABLE" && it.perExtraPerson > 0 ? ` (+${it.inGrams ? `${it.perExtraPerson} g` : it.perExtraPerson} por persona extra)` : ""}</li>)}
             </ul>
           </Link>
         ))}

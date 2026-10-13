@@ -20,6 +20,8 @@ export type CartLine = {
   role?: string;
   /** Resumen de lo incluido en un combo. */
   summary?: string;
+  /** Combos escalables: cantidad de personas elegida para este combo. */
+  persons?: number;
 };
 
 export type AppliedCoupon = {

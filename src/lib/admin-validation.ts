@@ -94,16 +94,30 @@ export function parseProduct(body: Record<string, unknown>) {
 export function parseCombo(body: Record<string, unknown>) {
   const name = str(body.name, 120);
   if (!name) throw new ValidationError("El nombre es obligatorio.");
-  const pricing = oneOf(body.pricing, ["FIXED", "PER_PERSON"] as ComboPricing[], "FIXED");
+  const pricing = oneOf(body.pricing, ["FIXED", "PER_PERSON", "SCALABLE"] as ComboPricing[], "FIXED");
   const price = int(body.price);
   if (!price || price <= 0) throw new ValidationError("Ingresá el precio.");
   const persons = Math.max(1, int(body.persons) ?? 1);
   const maxPersons = int(body.maxPersons);
   if (maxPersons !== null && maxPersons < persons) throw new ValidationError("El máximo de personas no puede ser menor al mínimo.");
+  const extraPersonPrice = int(body.extraPersonPrice);
+  if (pricing === "SCALABLE" && (extraPersonPrice === null || extraPersonPrice < 0)) {
+    throw new ValidationError("Ingresá el recargo por persona adicional (puede ser 0).");
+  }
   const rawItems = Array.isArray(body.items) ? (body.items as Record<string, unknown>[]) : [];
   const items = rawItems
-    .map((it, order) => ({ productId: str(it.productId, 60), quantity: num(it.quantity), note: str(it.note, 120), order }))
-    .filter((it): it is { productId: string; quantity: number; note: string | null; order: number } => Boolean(it.productId) && it.quantity !== null && it.quantity > 0);
+    .map((it, order) => ({
+      productId: str(it.productId, 60),
+      quantity: num(it.quantity),
+      inGrams: bool(it.inGrams),
+      perExtraPerson: pricing === "SCALABLE" ? Math.max(0, num(it.perExtraPerson) ?? 0) : 0,
+      note: str(it.note, 120),
+      order,
+    }))
+    .filter(
+      (it): it is { productId: string; quantity: number; inGrams: boolean; perExtraPerson: number; note: string | null; order: number } =>
+        Boolean(it.productId) && it.quantity !== null && it.quantity > 0
+    );
   if (items.length === 0) throw new ValidationError("Agregá al menos un producto al combo.");
   const compareAtPrice = int(body.compareAtPrice);
   return {
@@ -113,9 +127,10 @@ export function parseCombo(body: Record<string, unknown>) {
     imageUrl: str(body.imageUrl, 600),
     pricing,
     price,
+    extraPersonPrice: pricing === "SCALABLE" ? extraPersonPrice : null,
     compareAtPrice: compareAtPrice && compareAtPrice > price ? compareAtPrice : null,
     persons,
-    maxPersons: pricing === "PER_PERSON" ? maxPersons : null,
+    maxPersons: pricing === "FIXED" ? null : maxPersons,
     badge: str(body.badge, 40),
     featured: bool(body.featured),
     active: bool(body.active, true),

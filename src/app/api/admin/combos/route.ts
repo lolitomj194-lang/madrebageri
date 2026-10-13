@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { parseCombo } from "@/lib/admin-validation";
 import { readJson, handleError } from "@/lib/api-helpers";
 
+export async function GET() {
+  const combos = await prisma.combo.findMany({ include: { items: { include: { product: true }, orderBy: { order: "asc" } } }, orderBy: [{ order: "asc" }, { name: "asc" }] });
+  return NextResponse.json({ combos });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { items, ...data } = parseCombo(await readJson(req));

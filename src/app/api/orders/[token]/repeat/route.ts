@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { unitPrice, isEstimated } from "@/lib/pricing";
+import { comboTotal } from "@/lib/combo-math";
 
 /**
  * Devuelve las lineas de un pedido anterior con precios y disponibilidad ACTUALES,
@@ -52,20 +53,25 @@ export async function GET(_req: NextRequest, { params }: { params: { token: stri
         continue;
       }
       const perPerson = c.pricing === "PER_PERSON";
+      const scalable = c.pricing === "SCALABLE";
+      // Para combos escalables, las personas elegidas quedan en el nombre guardado: "(5 personas)".
+      const m = scalable ? /\((\d+) personas\)/.exec(it.name) : null;
+      const persons = scalable ? Math.max(c.persons, Number(m?.[1] ?? c.persons)) : undefined;
       lines.push({
         line: {
-          key: `combo:${c.id}`,
+          key: scalable ? `combo:${c.id}:${persons}` : `combo:${c.id}`,
           kind: "combo",
           id: c.id,
           slug: c.slug,
-          name: c.name,
+          name: scalable ? `${c.name} (${persons} personas)` : c.name,
           image: c.imageUrl,
           unitLabel: perPerson ? "persona" : "combo",
-          unitPrice: c.price,
+          unitPrice: perPerson ? c.price : comboTotal(c, persons),
           minQuantity: perPerson ? c.persons : 1,
           estimated: false,
           role: "COMBO",
           summary: it.detail,
+          persons,
         },
         quantity: perPerson ? Math.max(it.quantity, c.persons) : it.quantity,
       });

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { unitPrice, isEstimated, pluralUnit } from "@/lib/pricing";
+import { unitPrice, isEstimated } from "@/lib/pricing";
+import { comboTotal, comboSummary } from "@/lib/combo-math";
 import type { Product, Category, Combo, ComboItem } from "@/generated/prisma/client";
 
 export type ProductWithCategory = Product & { category: Category };
@@ -76,21 +77,28 @@ export function toClientProduct(p: ProductWithCategory) {
 
 export type ClientProduct = ReturnType<typeof toClientProduct>;
 
+function comboItemsLike(combo: ComboWithItems) {
+  return combo.items.map((it) => ({
+    name: it.product.name,
+    unitLabel: it.product.unitLabel,
+    quantity: it.quantity,
+    inGrams: it.inGrams,
+    perExtraPerson: it.perExtraPerson,
+    note: it.note,
+    saleUnit: it.product.saleUnit,
+    portionMinGrams: it.product.portionMinGrams,
+    portionMaxGrams: it.product.portionMaxGrams,
+    unitGrams: it.product.unitGrams,
+  }));
+}
+
 /** Precio total de un combo para una cantidad de personas. */
-export function comboPrice(combo: Pick<Combo, "pricing" | "price" | "persons">, persons?: number) {
-  if (combo.pricing === "FIXED") return combo.price;
-  return combo.price * Math.max(combo.persons, persons ?? combo.persons);
+export function comboPrice(combo: Pick<Combo, "pricing" | "price" | "persons" | "extraPersonPrice" | "maxPersons">, persons?: number) {
+  return comboTotal(combo, persons);
 }
 
 export function comboItemsSummary(combo: ComboWithItems, persons?: number) {
-  const mult = combo.pricing === "PER_PERSON" ? Math.max(combo.persons, persons ?? combo.persons) : 1;
-  return combo.items
-    .map((it) => {
-      const qty = it.quantity * mult;
-      const q = Number.isInteger(qty) ? qty : qty.toFixed(1);
-      return `${q} ${pluralUnit(it.product.unitLabel, qty)} de ${it.product.name}`;
-    })
-    .join(", ");
+  return comboSummary(combo, comboItemsLike(combo), persons);
 }
 
 export function toClientCombo(c: ComboWithItems) {
@@ -102,6 +110,7 @@ export function toClientCombo(c: ComboWithItems) {
     imageUrl: c.imageUrl,
     pricing: c.pricing,
     price: c.price,
+    extraPersonPrice: c.extraPersonPrice,
     compareAtPrice: c.compareAtPrice,
     persons: c.persons,
     maxPersons: c.maxPersons,
@@ -111,10 +120,13 @@ export function toClientCombo(c: ComboWithItems) {
       productId: it.productId,
       name: it.product.name,
       quantity: it.quantity,
+      inGrams: it.inGrams,
+      perExtraPerson: it.perExtraPerson,
       unitLabel: it.product.unitLabel,
       note: it.note,
       portionMinGrams: it.product.portionMinGrams,
       portionMaxGrams: it.product.portionMaxGrams,
+      unitGrams: it.product.unitGrams,
       saleUnit: it.product.saleUnit,
     })),
   };

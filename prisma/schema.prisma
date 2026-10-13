@@ -44,9 +44,13 @@ enum AsadoRole {
   FUEGO
 }
 
+/// FIXED: precio y contenido cerrados.
+/// PER_PERSON: precio y cantidades lineales por persona.
+/// SCALABLE: base para N personas + recargo y cantidades extra por cada persona adicional.
 enum ComboPricing {
   FIXED
   PER_PERSON
+  SCALABLE
 }
 
 enum OrderStatus {
@@ -136,8 +140,10 @@ model Combo {
   description String?
   imageUrl    String?
   pricing     ComboPricing @default(FIXED)
-  /// Precio del combo (FIXED) o precio por persona (PER_PERSON).
+  /// Precio del combo (FIXED / SCALABLE base) o precio por persona (PER_PERSON).
   price       Int
+  /// SCALABLE: recargo por cada persona adicional sobre la base.
+  extraPersonPrice Int?
   /// Precio anterior/tachado opcional para mostrar promocion.
   compareAtPrice Int?
   /// Comensales estimados (FIXED) o minimo de personas (PER_PERSON).
@@ -159,8 +165,12 @@ model ComboItem {
   combo     Combo   @relation(fields: [comboId], references: [id], onDelete: Cascade)
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  /// Cantidad de porciones/unidades. En combos PER_PERSON es la cantidad por persona.
+  /// Cantidad base (porciones/unidades, o gramos si inGrams). En PER_PERSON es por persona.
   quantity Float
+  /// Si es true, quantity y perExtraPerson se expresan en gramos (ej: 1000 = 1 kg).
+  inGrams  Boolean @default(false)
+  /// SCALABLE: cantidad que se suma por cada persona adicional.
+  perExtraPerson Float @default(0)
   note     String?
   order    Int     @default(0)
 

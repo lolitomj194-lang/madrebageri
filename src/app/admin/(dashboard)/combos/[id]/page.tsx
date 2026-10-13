@@ -20,6 +20,7 @@ export default async function EditComboPage({ params }: { params: Promise<{ id: 
     imageUrl: combo.imageUrl ?? "",
     pricing: combo.pricing,
     price: String(combo.price),
+    extraPersonPrice: combo.extraPersonPrice === null ? "" : String(combo.extraPersonPrice),
     compareAtPrice: combo.compareAtPrice ? String(combo.compareAtPrice) : "",
     persons: String(combo.persons),
     maxPersons: combo.maxPersons ? String(combo.maxPersons) : "",
@@ -27,12 +28,12 @@ export default async function EditComboPage({ params }: { params: Promise<{ id: 
     featured: combo.featured,
     active: combo.active,
     order: String(combo.order),
-    items: combo.items.map((it) => ({ productId: it.productId, quantity: String(it.quantity), note: it.note ?? "" })),
+    items: combo.items.map((it) => ({ productId: it.productId, quantity: String(it.quantity), inGrams: it.inGrams, perExtraPerson: String(it.perExtraPerson), note: it.note ?? "" })),
   };
   return (
     <div>
       <AdminPageHeader title={combo.name} subtitle="Editar combo" />
-      <ComboForm initial={initial} products={products.map((p) => ({ id: p.id, name: p.name, unitLabel: p.unitLabel, unitPrice: unitPrice(p) }))} />
+      <ComboForm initial={initial} products={products.map((p) => ({ id: p.id, name: p.name, unitLabel: p.unitLabel, unitPrice: unitPrice(p), pricePerKg: p.pricePerKg, saleUnit: p.saleUnit }))} />
     </div>
   );
 }

@@ -10,7 +10,7 @@ export default async function NewComboPage() {
   return (
     <div>
       <AdminPageHeader title="Nuevo combo" />
-      <ComboForm initial={emptyCombo} products={products.map((p) => ({ id: p.id, name: p.name, unitLabel: p.unitLabel, unitPrice: unitPrice(p) }))} />
+      <ComboForm initial={emptyCombo} products={products.map((p) => ({ id: p.id, name: p.name, unitLabel: p.unitLabel, unitPrice: unitPrice(p), pricePerKg: p.pricePerKg, saleUnit: p.saleUnit }))} />
     </div>
   );
 }
