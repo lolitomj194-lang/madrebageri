@@ -19,9 +19,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams<{ id: string
 export async function PATCH(req: NextRequest, { params }: RouteParams<{ id: string }>) {
   const { id } = await params;
   const body = await readJson(req);
-  const data: { active?: boolean; featured?: boolean } = {};
+  const data: { active?: boolean; featured?: boolean; imageUrl?: string | null } = {};
   if (typeof body.active === "boolean") data.active = body.active;
   if (typeof body.featured === "boolean") data.featured = body.featured;
+  if (typeof body.imageUrl === "string") data.imageUrl = body.imageUrl.trim().slice(0, 600) || null;
   try {
     const product = await prisma.product.update({ where: { id }, data });
     return NextResponse.json({ product });
