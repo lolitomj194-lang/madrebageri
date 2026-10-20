@@ -33,6 +33,15 @@ export const PAYMENT_LABELS: Record<string, string> = {
   EFECTIVO: "Efectivo",
 };
 
+export const CHANNEL_LABELS: Record<string, string> = {
+  WEB: "Tienda web",
+  INSTAGRAM: "Instagram",
+  LOCAL_MAYORISTA: "Local mayorista",
+  CONOCIDO: "Conocido",
+  FERIA: "Feria",
+  OTRO: "Otro",
+};
+
 export const SHIPPING_LABELS: Record<string, string> = {
   ENVIO_NACIONAL: "Envío a domicilio",
   RETIRO: "Retiro / entrega en persona",

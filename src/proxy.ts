@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE_NAME, verifyAdminToken } from "@/lib/auth";
+import { ADMIN_COOKIE_NAME, canAccess, verifyAdminToken } from "@/lib/auth";
 
 const PUBLIC_PATHS = ["/admin/login", "/api/admin/login", "/api/admin/logout", "/api/admin/seed-init"];
 
@@ -21,6 +21,12 @@ export function proxy(req: NextRequest) {
         return NextResponse.json({ error: "No autorizado" }, { status: 401 });
       }
       return NextResponse.redirect(new URL("/admin/login", req.url));
+    }
+    if (!canAccess(payload.role, pathname)) {
+      if (isAdminApi) {
+        return NextResponse.json({ error: "Sin permiso para esta sección" }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL("/admin/productos", req.url));
     }
   }
 

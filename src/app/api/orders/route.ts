@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPreferenceClient } from "@/lib/mercadopago";
-import { computeUnitPrice } from "@/lib/pricing";
+import { createOrderWithStock } from "@/lib/orders";
 import type { CreateOrderRequest } from "@/lib/order-types";
 
 export async function POST(req: NextRequest) {
@@ -29,96 +29,28 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const order = await prisma.$transaction(async (tx) => {
-      // Cantidad total por producto (todas las telas juntas) para decidir
-      // si corresponde precio mayorista.
-      const qtyByProduct = new Map<string, number>();
-      for (const item of body.items) {
-        if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-          throw new Error("Cantidad inválida");
-        }
-        qtyByProduct.set(
-          item.productId,
-          (qtyByProduct.get(item.productId) ?? 0) + item.quantity
-        );
-      }
-
-      const isCashPayment =
-        body.paymentMethod === "TRANSFERENCIA" || body.paymentMethod === "EFECTIVO";
-
-      let total = 0;
-      let orderHasWholesale = false;
-      const itemsData: {
-        productId: string;
-        variantId: string;
-        productName: string;
-        variantLabel: string;
-        quantity: number;
-        unitPrice: number;
-        isWholesale: boolean;
-      }[] = [];
-
-      for (const item of body.items) {
-        const variant = await tx.variant.findUnique({
-          where: { id: item.variantId },
-          include: { product: true },
-        });
-        if (!variant || variant.productId !== item.productId || !variant.active) {
-          throw new Error("Alguna tela del carrito ya no está disponible");
-        }
-        if (!variant.product.active) {
-          throw new Error(`${variant.product.name} ya no está disponible`);
-        }
-
-        const { unitPrice, isWholesale } = computeUnitPrice(
-          variant.product,
-          variant.priceDelta,
-          qtyByProduct.get(item.productId) ?? item.quantity,
-          isCashPayment
-        );
-        orderHasWholesale = orderHasWholesale || isWholesale;
-        total += unitPrice * item.quantity;
-        itemsData.push({
-          productId: variant.productId,
-          variantId: variant.id,
-          productName: variant.product.name,
-          variantLabel: variant.name,
-          quantity: item.quantity,
-          unitPrice,
-          isWholesale,
-        });
-
-        // Descuento de stock atomico: si otro pedido lo gano, falla.
-        const updated = await tx.variant.updateMany({
-          where: { id: variant.id, stock: { gte: item.quantity } },
-          data: { stock: { decrement: item.quantity } },
-        });
-        if (updated.count === 0) {
-          throw new Error(
-            `Sin stock suficiente de ${variant.product.name} (${variant.name})`
-          );
-        }
-      }
-
-      return tx.order.create({
-        data: {
-          customerName: body.customerName.trim(),
-          phone: body.phone.trim(),
-          email: body.email?.trim() || null,
-          address: body.address?.trim() || null,
-          city: body.city?.trim() || null,
-          province: body.province?.trim() || null,
-          postalCode: body.postalCode?.trim() || null,
-          shippingMethod: body.shippingMethod,
-          paymentMethod: body.paymentMethod,
-          notes: body.notes?.trim() || null,
-          isWholesale: orderHasWholesale,
-          total,
-          items: { create: itemsData },
-        },
-        include: { items: true },
-      });
-    });
+    const order = await prisma.$transaction((tx) =>
+      createOrderWithStock(tx, {
+        customerName: body.customerName,
+        phone: body.phone,
+        email: body.email,
+        address: body.address,
+        city: body.city,
+        province: body.province,
+        postalCode: body.postalCode,
+        shippingMethod: body.shippingMethod,
+        paymentMethod: body.paymentMethod,
+        channel: "WEB",
+        notes: body.notes,
+        // El precio lo decide siempre el servidor: se ignora cualquier
+        // precio que venga del navegador.
+        items: body.items.map((i) => ({
+          productId: i.productId,
+          variantId: i.variantId,
+          quantity: i.quantity,
+        })),
+      })
+    );
 
     if (body.paymentMethod === "MERCADOPAGO") {
       const preferenceClient = getPreferenceClient();

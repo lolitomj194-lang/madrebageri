@@ -26,7 +26,26 @@ type ProductRow = {
   }[];
 };
 
-export function AdminProductsTable({ products }: { products: ProductRow[] }) {
+export type ProductCostInfo = {
+  totalCost: number;
+  retailMargin: number;
+  wholesaleMargin: number | null;
+};
+
+function marginClass(margin: number) {
+  if (margin < 0) return "bg-red-100 text-red-700";
+  if (margin < 20) return "bg-amber-100 text-amber-800";
+  return "bg-brand-sage/15 text-brand-sage-dark";
+}
+
+export function AdminProductsTable({
+  products,
+  costInfo,
+}: {
+  products: ProductRow[];
+  // Solo la duena lo recibe; si falta, no se muestran costos ni margenes.
+  costInfo?: Record<string, ProductCostInfo>;
+}) {
   const router = useRouter();
   const [busyVariant, setBusyVariant] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -108,6 +127,25 @@ export function AdminProductsTable({ products }: { products: ProductRow[] }) {
                 {product.wholesalePrice != null &&
                   ` · mayorista ${formatPrice(product.wholesalePrice)} (${product.wholesaleMinQty}+)`}
               </p>
+              {costInfo && (
+                costInfo[product.id] ? (
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-brand-ink-soft">
+                      costo {formatPrice(costInfo[product.id].totalCost)}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 font-semibold ${marginClass(costInfo[product.id].retailMargin)}`}>
+                      minorista {costInfo[product.id].retailMargin}%
+                    </span>
+                    {costInfo[product.id].wholesaleMargin != null && (
+                      <span className={`rounded-full px-2 py-0.5 font-semibold ${marginClass(costInfo[product.id].wholesaleMargin as number)}`}>
+                        mayorista {costInfo[product.id].wholesaleMargin}%
+                      </span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-amber-700">Sin costo cargado</p>
+                )
+              )}
 
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {product.variants.map((variant) => (

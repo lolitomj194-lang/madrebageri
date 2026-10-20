@@ -10,6 +10,11 @@ export type VariantInput = {
   active?: boolean;
 };
 
+export type RecipeInput = {
+  materialId: string;
+  quantity: number;
+};
+
 export type ProductInput = {
   name: string;
   description?: string;
@@ -22,6 +27,8 @@ export type ProductInput = {
   active: boolean;
   images: { url: string }[];
   variants: VariantInput[];
+  laborMinutes?: number;
+  materials?: RecipeInput[];
 };
 
 export function validateProductInput(body: ProductInput): string | null {
@@ -38,5 +45,17 @@ export function validateProductInput(body: ProductInput): string | null {
   if (hasWholesalePrice !== hasWholesaleQty) {
     return "Para mayorista completá precio Y cantidad mínima (o ninguno)";
   }
+  if (body.materials?.some((m) => !m.materialId || !(Number(m.quantity) > 0))) {
+    return "Cada material de la receta necesita una cantidad mayor a 0";
+  }
   return null;
+}
+
+// Receta sin duplicados y con numeros limpios.
+export function normalizeRecipe(materials: RecipeInput[] | undefined) {
+  const byId = new Map<string, number>();
+  for (const m of materials ?? []) {
+    byId.set(m.materialId, (byId.get(m.materialId) ?? 0) + Number(m.quantity));
+  }
+  return [...byId.entries()].map(([materialId, quantity]) => ({ materialId, quantity }));
 }

@@ -68,15 +68,43 @@ pegar URLs de imágenes.
 
 ## Panel de administración (`/admin`)
 
-Pensado para usarse desde el celular:
+Pensado para usarse desde el celular. Dos roles: **Dueña** (ve todo) y
+**Carga de stock** (solo productos, telas y fotos; pensado para la community
+manager).
 
-- **Resumen**: pedidos pendientes, ventas del mes, telas por agotarse.
+- **Resumen**: vendido en el mes por canal, plata a cobrar, pedidos web
+  pendientes, productos con margen bajo, telas por agotarse.
 - **Productos**: crear/editar con fotos subidas desde la cámara/galería,
   telas con foto y stock propio, precios minorista/efectivo/mayorista,
   botón rápido "agotar" por tela y aumento masivo de precios por porcentaje
-  (redondeado a los $100).
-- **Pedidos**: detalle completo, link directo al WhatsApp del cliente y
-  cambio de estado (al cancelar se repone el stock automáticamente).
+  (redondeado a los $100). Cada producto muestra su costo y margen.
+- **Ventas**: todas las ventas en un solo lugar — las de la web entran solas
+  y las de Instagram, locales mayoristas, conocidos y ferias se cargan con
+  "Registrar venta" (descuenta stock igual que la web). Las ventas fiadas
+  quedan como "a cobrar" hasta marcarlas cobradas.
+- **Clientes**: locales y clientes frecuentes con historial y cuánto deben.
+- **Costos**: parámetros del taller (sueldo propio, jornal de la empleada,
+  horas productivas, gastos fijos, márgenes) y lista de materiales con su
+  último precio por proveedor. La receta y los minutos de confección se
+  cargan en cada producto; el costo se recalcula solo cuando cambia un
+  precio o un parámetro, y el sistema sugiere precio mayorista y minorista.
+- **Usuarios**: altas, contraseñas y roles.
+
+### Cómo se calcula el costo de un producto
+
+```
+materiales   = Σ cantidad en la receta × último precio del material
+mano de obra = minutos de confección / 60 × valor hora
+               valor hora = (sueldo dueña + jornal × días/semana × 4,33) / horas productivas del mes
+gastos fijos = gastos fijos del mes / productos estimados por mes
+costo total  = materiales + mano de obra + gastos fijos
+mayorista sugerido = costo × (1 + margen mayorista %)      (redondeado a $100)
+minorista sugerido = mayorista × factor minorista
+```
+
+A propósito no se controla stock de materiales (metros, unidades): en un
+taller con retazos y telas compartidas nunca queda al día. Solo se guardan
+precios, que es lo que hace falta para costear.
 
 ## Deploy en Vercel
 

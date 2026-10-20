@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/format";
-import { ORDER_STATUS_LABELS, PAYMENT_LABELS, SHIPPING_LABELS } from "@/lib/order-types";
+import {
+  CHANNEL_LABELS,
+  ORDER_STATUS_LABELS,
+  PAYMENT_LABELS,
+  SHIPPING_LABELS,
+} from "@/lib/order-types";
 
 type OrderRow = {
   id: string;
@@ -17,10 +22,12 @@ type OrderRow = {
   shippingMethod: string;
   paymentMethod: string;
   status: string;
+  channel: string;
   isWholesale: boolean;
   total: number;
   notes: string | null;
   createdAt: string | Date;
+  customer: { id: string; name: string } | null;
   items: {
     id: string;
     productName: string;
@@ -48,7 +55,7 @@ export function AdminOrdersTable({ orders }: { orders: OrderRow[] }) {
   async function updateStatus(orderId: string, status: string) {
     if (
       status === "CANCELLED" &&
-      !confirm("¿Cancelar el pedido? El stock reservado vuelve a estar disponible.")
+      !confirm("¿Cancelar la venta? El stock vuelve a estar disponible.")
     ) {
       return;
     }
@@ -73,7 +80,7 @@ export function AdminOrdersTable({ orders }: { orders: OrderRow[] }) {
   if (orders.length === 0) {
     return (
       <p className="rounded-2xl border border-brand-line bg-white p-8 text-center text-sm text-brand-ink-soft">
-        Todavía no hay pedidos.
+        No hay ventas con estos filtros.
       </p>
     );
   }
@@ -83,13 +90,18 @@ export function AdminOrdersTable({ orders }: { orders: OrderRow[] }) {
       {orders.map((order) => {
         const isOpen = expanded === order.id;
         const shortId = order.id.slice(-6).toUpperCase();
+        const isManual = order.channel !== "WEB";
+        const toCollect = isManual && order.status === "PENDING";
         return (
           <div key={order.id} className="rounded-2xl border border-brand-line bg-white">
             <button
               onClick={() => setExpanded(isOpen ? null : order.id)}
-              className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left"
+              className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left"
             >
               <span className="font-mono text-xs text-brand-ink-soft">#{shortId}</span>
+              <span className="rounded-full bg-brand-cream px-2 py-0.5 text-xs text-brand-ink-soft">
+                {CHANNEL_LABELS[order.channel] ?? order.channel}
+              </span>
               <span className="font-semibold text-brand-ink">{order.customerName}</span>
               {order.isWholesale && (
                 <span className="rounded-full bg-brand-sage/15 px-2 py-0.5 text-xs font-semibold text-brand-sage-dark">
@@ -99,7 +111,7 @@ export function AdminOrdersTable({ orders }: { orders: OrderRow[] }) {
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[order.status] ?? ""}`}
               >
-                {ORDER_STATUS_LABELS[order.status] ?? order.status}
+                {toCollect ? "A cobrar" : (ORDER_STATUS_LABELS[order.status] ?? order.status)}
               </span>
               <span className="ml-auto font-semibold text-brand-ink">{formatPrice(order.total)}</span>
               <span className="text-xs text-brand-ink-soft">
@@ -118,16 +130,18 @@ export function AdminOrdersTable({ orders }: { orders: OrderRow[] }) {
                   <div className="space-y-1">
                     <p className="font-semibold text-brand-ink">Cliente</p>
                     <p>{order.customerName}</p>
-                    <p>
-                      <a
-                        href={`https://wa.me/${order.phone.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand-terracotta underline"
-                      >
-                        {order.phone}
-                      </a>
-                    </p>
+                    {order.phone && order.phone !== "-" && (
+                      <p>
+                        <a
+                          href={`https://wa.me/${order.phone.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-brand-terracotta underline"
+                        >
+                          {order.phone}
+                        </a>
+                      </p>
+                    )}
                     {order.email && <p>{order.email}</p>}
                   </div>
                   <div className="space-y-1">
@@ -157,7 +171,12 @@ export function AdminOrdersTable({ orders }: { orders: OrderRow[] }) {
                             <span className="ml-1 text-xs text-brand-sage-dark">mayorista</span>
                           )}
                         </span>
-                        <span className="shrink-0">{formatPrice(item.unitPrice * item.quantity)}</span>
+                        <span className="shrink-0">
+                          {formatPrice(item.unitPrice * item.quantity)}
+                          <span className="ml-1 text-xs text-brand-ink-soft">
+                            ({formatPrice(item.unitPrice)} c/u)
+                          </span>
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -171,21 +190,32 @@ export function AdminOrdersTable({ orders }: { orders: OrderRow[] }) {
                 )}
 
                 <div className="flex flex-wrap items-center gap-2 border-t border-brand-line pt-3">
-                  <span className="text-xs text-brand-ink-soft">Cambiar estado:</span>
-                  {Object.entries(ORDER_STATUS_LABELS).map(([status, label]) => (
+                  {toCollect && (
                     <button
-                      key={status}
-                      onClick={() => updateStatus(order.id, status)}
-                      disabled={busy === order.id || order.status === status}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium disabled:opacity-40 ${
-                        order.status === status
-                          ? "border-brand-ink bg-brand-ink text-white"
-                          : "border-brand-line hover:border-brand-terracotta"
-                      }`}
+                      onClick={() => updateStatus(order.id, "PAID")}
+                      disabled={busy === order.id}
+                      className="btn-primary px-4 py-1.5 text-xs"
                     >
-                      {label}
+                      ✓ Marcar cobrada
                     </button>
-                  ))}
+                  )}
+                  <span className="text-xs text-brand-ink-soft">Estado:</span>
+                  {Object.entries(ORDER_STATUS_LABELS)
+                    .filter(([status]) => !isManual || !["PREPARING", "SHIPPED"].includes(status))
+                    .map(([status, label]) => (
+                      <button
+                        key={status}
+                        onClick={() => updateStatus(order.id, status)}
+                        disabled={busy === order.id || order.status === status}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium disabled:opacity-40 ${
+                          order.status === status
+                            ? "border-brand-ink bg-brand-ink text-white"
+                            : "border-brand-line hover:border-brand-terracotta"
+                        }`}
+                      >
+                        {isManual && status === "PENDING" ? "A cobrar" : label}
+                      </button>
+                    ))}
                 </div>
               </div>
             )}

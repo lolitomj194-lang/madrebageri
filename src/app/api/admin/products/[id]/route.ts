@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateProductInput, type ProductInput } from "@/lib/product-input";
+import { normalizeRecipe, validateProductInput, type ProductInput } from "@/lib/product-input";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,6 +9,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     include: {
       images: { orderBy: { order: "asc" } },
       variants: { orderBy: { order: "asc" } },
+      materials: { include: { material: true } },
       category: true,
     },
   });
@@ -23,9 +24,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (error) return NextResponse.json({ error }, { status: 400 });
 
   const product = await prisma.$transaction(async (tx) => {
-    // Las imagenes se reemplazan enteras; las telas se actualizan por id para
-    // no romper referencias de pedidos ni resetear stock por accidente.
+    // Las imagenes y la receta se reemplazan enteras; las telas se actualizan
+    // por id para no romper referencias de pedidos ni resetear stock.
     await tx.productImage.deleteMany({ where: { productId: id } });
+    await tx.productMaterial.deleteMany({ where: { productId: id } });
 
     const keptIds = body.variants.filter((v) => v.id).map((v) => v.id as string);
     await tx.variant.deleteMany({
@@ -60,9 +62,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         categoryId: body.categoryId,
         featured: Boolean(body.featured),
         active: body.active ?? true,
+        laborMinutes: Math.max(0, Number(body.laborMinutes) || 0),
         images: { create: body.images.map((img, i) => ({ url: img.url, order: i })) },
+        materials: { create: normalizeRecipe(body.materials) },
       },
-      include: { images: true, variants: { orderBy: { order: "asc" } } },
+      include: { images: true, variants: { orderBy: { order: "asc" } }, materials: true },
     });
   });
 

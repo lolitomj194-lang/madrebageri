@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
-import { validateProductInput, type ProductInput } from "@/lib/product-input";
+import { normalizeRecipe, validateProductInput, type ProductInput } from "@/lib/product-input";
 
 export async function GET() {
   const products = await prisma.product.findMany({
@@ -9,6 +9,7 @@ export async function GET() {
       category: true,
       images: { orderBy: { order: "asc" } },
       variants: { orderBy: { order: "asc" } },
+      materials: { include: { material: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
       categoryId: body.categoryId,
       featured: Boolean(body.featured),
       active: body.active ?? true,
+      laborMinutes: Math.max(0, Number(body.laborMinutes) || 0),
       images: { create: body.images.map((img, i) => ({ url: img.url, order: i })) },
       variants: {
         create: body.variants.map((v, i) => ({
@@ -49,8 +51,9 @@ export async function POST(req: NextRequest) {
           order: i,
         })),
       },
+      materials: { create: normalizeRecipe(body.materials) },
     },
-    include: { images: true, variants: true },
+    include: { images: true, variants: true, materials: true },
   });
 
   return NextResponse.json(product);

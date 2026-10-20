@@ -5,8 +5,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ImageUploadButton } from "@/components/admin/ImageUploadButton";
 import type { ProductInput, VariantInput } from "@/lib/product-input";
+import { computeCost, marginPercent, netAfterMp, type CostSettingsInput } from "@/lib/costing";
+import { formatPrice } from "@/lib/format";
 
 type Category = { id: string; name: string };
+type MaterialOption = { id: string; name: string; unit: string; unitCost: number; active: boolean };
+type RecipeRow = { key: string; materialId: string; quantity: number };
 
 type ExistingProduct = {
   id: string;
@@ -19,6 +23,7 @@ type ExistingProduct = {
   categoryId: string;
   featured: boolean;
   active: boolean;
+  laborMinutes: number;
   images: { url: string }[];
   variants: {
     id: string;
@@ -28,6 +33,7 @@ type ExistingProduct = {
     priceDelta: number;
     active: boolean;
   }[];
+  materials: { materialId: string; quantity: number }[];
 };
 
 type FormVariant = VariantInput & { key: string };
@@ -40,12 +46,25 @@ function nextKey() {
 export function ProductForm({
   categories,
   product,
+  materialOptions = [],
+  costSettings,
 }: {
   categories: Category[];
   product?: ExistingProduct;
+  // Solo la duena recibe materiales y parametros; para STAFF la seccion de
+  // costos no se muestra.
+  materialOptions?: MaterialOption[];
+  costSettings?: CostSettingsInput;
 }) {
   const router = useRouter();
   const isEdit = Boolean(product);
+  const showCosts = Boolean(costSettings);
+
+  const [laborMinutes, setLaborMinutes] = useState(product ? String(product.laborMinutes) : "");
+  const [recipe, setRecipe] = useState<RecipeRow[]>(
+    product?.materials.map((m) => ({ key: nextKey(), materialId: m.materialId, quantity: m.quantity })) ??
+      []
+  );
 
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
@@ -97,6 +116,10 @@ export function ProductForm({
       featured,
       active,
       images: images.map((url) => ({ url })),
+      laborMinutes: Number(laborMinutes) || 0,
+      materials: recipe
+        .filter((r) => r.materialId && r.quantity > 0)
+        .map((r) => ({ materialId: r.materialId, quantity: r.quantity })),
       variants: variants.map((v) => ({
         id: v.id,
         name: v.name,
@@ -391,6 +414,25 @@ export function ProductForm({
         </button>
       </section>
 
+      {/* Costo y rentabilidad (solo duena) */}
+      {showCosts && costSettings && (
+        <CostSection
+          laborMinutes={laborMinutes}
+          setLaborMinutes={setLaborMinutes}
+          recipe={recipe}
+          setRecipe={setRecipe}
+          materialOptions={materialOptions}
+          costSettings={costSettings}
+          price={Number(price) || 0}
+          cashPrice={cashPrice ? Number(cashPrice) : null}
+          wholesalePrice={wholesalePrice ? Number(wholesalePrice) : null}
+          onApplySuggested={(wholesale, retail) => {
+            setWholesalePrice(String(wholesale));
+            setPrice(String(retail));
+          }}
+        />
+      )}
+
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       <div className="flex gap-3">
@@ -402,5 +444,204 @@ export function ProductForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function CostSection({
+  laborMinutes,
+  setLaborMinutes,
+  recipe,
+  setRecipe,
+  materialOptions,
+  costSettings,
+  price,
+  cashPrice,
+  wholesalePrice,
+  onApplySuggested,
+}: {
+  laborMinutes: string;
+  setLaborMinutes: (v: string) => void;
+  recipe: RecipeRow[];
+  setRecipe: React.Dispatch<React.SetStateAction<RecipeRow[]>>;
+  materialOptions: MaterialOption[];
+  costSettings: CostSettingsInput;
+  price: number;
+  cashPrice: number | null;
+  wholesalePrice: number | null;
+  onApplySuggested: (wholesale: number, retail: number) => void;
+}) {
+  const materialById = new Map(materialOptions.map((m) => [m.id, m]));
+  const lines = recipe
+    .filter((r) => r.materialId && materialById.has(r.materialId))
+    .map((r) => ({ quantity: r.quantity, material: { unitCost: materialById.get(r.materialId)!.unitCost } }));
+  const cost = computeCost({ laborMinutes: Number(laborMinutes) || 0, materials: lines }, costSettings);
+  const hasData = lines.length > 0 || (Number(laborMinutes) || 0) > 0;
+
+  const marginRows = [
+    { label: "Minorista (lista)", value: price },
+    { label: "Minorista efectivo", value: cashPrice },
+    { label: "Mayorista", value: wholesalePrice },
+  ].filter((r): r is { label: string; value: number } => r.value != null && r.value > 0);
+
+  function updateRow(key: string, patch: Partial<RecipeRow>) {
+    setRecipe((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-brand-line bg-white p-5">
+      <div>
+        <h2 className="font-serif text-lg text-brand-ink">Costo y rentabilidad</h2>
+        <p className="text-xs text-brand-ink-soft">
+          Cargá qué materiales lleva una unidad y cuántos minutos tarda en hacerse. El costo se
+          recalcula solo cuando cambian los precios de los materiales o los parámetros del taller.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-3">
+          <label className="block text-sm">
+            <span className="mb-1 block text-brand-ink-soft">Minutos de confección por unidad</span>
+            <input
+              type="number"
+              min={0}
+              value={laborMinutes}
+              onChange={(e) => setLaborMinutes(e.target.value)}
+              placeholder="Ej: 45"
+              className="input-field max-w-40"
+            />
+          </label>
+
+          <div>
+            <p className="mb-1 text-sm text-brand-ink-soft">Receta de materiales</p>
+            {materialOptions.length === 0 ? (
+              <p className="rounded-lg bg-brand-cream px-3 py-2 text-xs text-brand-ink-soft">
+                Todavía no hay materiales cargados. Agregalos en la sección Costos y después volvé acá.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {recipe.map((row) => {
+                  const material = materialById.get(row.materialId);
+                  return (
+                    <div key={row.key} className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={row.materialId}
+                        onChange={(e) => updateRow(row.key, { materialId: e.target.value })}
+                        className="input-field flex-1"
+                      >
+                        <option value="">Elegir material...</option>
+                        {materialOptions
+                          .filter((m) => m.active || m.id === row.materialId)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name} ({formatPrice(m.unitCost)}/{m.unit})
+                            </option>
+                          ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={row.quantity}
+                        onChange={(e) => updateRow(row.key, { quantity: Number(e.target.value) })}
+                        className="input-field w-24"
+                      />
+                      <span className="w-14 text-xs text-brand-ink-soft">{material?.unit ?? ""}</span>
+                      <span className="w-24 text-right text-xs font-medium text-brand-ink">
+                        {material ? formatPrice(Math.round(material.unitCost * row.quantity)) : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRecipe((rows) => rows.filter((r) => r.key !== row.key))}
+                        className="text-xs text-red-600 underline"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRecipe((rows) => [...rows, { key: nextKey(), materialId: "", quantity: 1 }])
+                  }
+                  className="rounded-full border border-brand-line bg-white px-4 py-1.5 text-sm hover:border-brand-terracotta"
+                >
+                  + Agregar material
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-xl bg-brand-sage/10 p-4 text-sm">
+          {!hasData ? (
+            <p className="text-xs text-brand-ink-soft">
+              Completá minutos o materiales para ver el costo.
+            </p>
+          ) : (
+            <>
+              <div className="space-y-1">
+                <Row label="Materiales" value={cost.materialCost} />
+                <Row label={`Mano de obra (${formatPrice(cost.hourlyRate)}/h)`} value={cost.laborCost} />
+                <Row label="Gastos fijos" value={cost.overheadCost} />
+                <div className="flex justify-between border-t border-brand-line pt-1 font-semibold text-brand-ink">
+                  <span>Costo total</span>
+                  <span>{formatPrice(cost.totalCost)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1 border-t border-brand-line pt-2">
+                <p className="text-xs uppercase tracking-wide text-brand-ink/50">Precios sugeridos</p>
+                <Row label={`Mayorista (+${costSettings.wholesaleMarginPercent}%)`} value={cost.suggestedWholesale} />
+                <Row label={`Minorista (×${costSettings.retailMultiplier})`} value={cost.suggestedRetail} />
+                <button
+                  type="button"
+                  onClick={() => onApplySuggested(cost.suggestedWholesale, cost.suggestedRetail)}
+                  className="mt-1 text-xs font-medium text-brand-terracotta underline"
+                >
+                  Usar estos precios
+                </button>
+              </div>
+
+              {marginRows.length > 0 && (
+                <div className="space-y-1 border-t border-brand-line pt-2">
+                  <p className="text-xs uppercase tracking-wide text-brand-ink/50">Margen con tus precios</p>
+                  {marginRows.map((r) => {
+                    const margin = marginPercent(r.value, cost.totalCost);
+                    return (
+                      <div key={r.label} className="flex justify-between">
+                        <span className="text-brand-ink-soft">{r.label}</span>
+                        <span
+                          className={`font-semibold ${
+                            margin < 0 ? "text-red-600" : margin < 20 ? "text-amber-600" : "text-brand-sage-dark"
+                          }`}
+                        >
+                          {margin}% {margin < 0 && "· por debajo del costo"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {price > 0 && (
+                    <p className="pt-1 text-xs text-brand-ink-soft">
+                      Con Mercado Pago te quedan {formatPrice(netAfterMp(price, costSettings))} netos por
+                      unidad.
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Row({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-brand-ink-soft">{label}</span>
+      <span>{formatPrice(value)}</span>
+    </div>
   );
 }
