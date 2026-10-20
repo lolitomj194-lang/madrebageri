@@ -3,6 +3,14 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// Neon suspende la base cuando no se usa y tarda unos segundos en despertar;
+// los 5 s por defecto de Prisma no alcanzan y `migrate deploy` falla en el
+// build de Vercel. Se da mas margen solo a la conexion del CLI.
+function withConnectTimeout(url: string | undefined, seconds = 30) {
+  if (!url || /[?&]connect_timeout=/.test(url)) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}connect_timeout=${seconds}`;
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -13,9 +21,10 @@ export default defineConfig({
   // DB has a pooler, point DATABASE_URL at the pooler and DIRECT_URL at the
   // direct connection; with a single connection string, DATABASE_URL alone works.
   datasource: {
-    url:
+    url: withConnectTimeout(
       process.env["DIRECT_URL"] ??
-      process.env["DATABASE_URL_UNPOOLED"] ?? // conexion directa que crea Neon en Vercel
-      process.env["DATABASE_URL"],
+        process.env["DATABASE_URL_UNPOOLED"] ?? // conexion directa que crea Neon en Vercel
+        process.env["DATABASE_URL"]
+    ),
   },
 });
